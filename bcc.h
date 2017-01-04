@@ -17,6 +17,7 @@
 #include "log.h"
 #include "common.h"
 #include "load_file.h"
+#include "lex.h"
 
 
 
