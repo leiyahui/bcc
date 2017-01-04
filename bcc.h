@@ -1,6 +1,7 @@
 #ifndef _BCC_H
 #define _BCC_H
 
+#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <io.h>
@@ -12,10 +13,10 @@
 #include <sys/stat.h>
 #include <string.h>
 
-
 #include "memory.h"
 #include "log.h"
 #include "common.h"
+#include "load_file.h"
 
 
 
