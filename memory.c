@@ -23,3 +23,4 @@ void bcc_free(void *ptr)
 	}
 	ptr = NULL;
 }
+
