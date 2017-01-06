@@ -11,10 +11,10 @@ enum TOKEN {
 	/*type specifier*/
 	TK_VOID, TK_CHAR, TK_SHORT, TK_INT, TK_LONG, TK_FLOAT, TK_DOUBLE, TK_SIGNED, TK_UNSIGNED, TK_STRUCT, TK_UNION, TK_ENUM,
 	/*rest key words*/
-	TK_BREAK, TK_CASE, TK_CONTIUE, TK_DEFAULT,
+	TK_BREAK, TK_CASE, TK_CONTIUE, TK_DEFAULT, TK_SIZEOF,
 	TK_IF, TK_ELSE, TK_DO, TK_FOR, TK_WHILE, TK_GOTO, TK_RETURN, TK_SWITCH,
 	/*constant*/
-	TK_STRING, TK_LETERAL, TK_SIZEOF, 
+	TK_STRING, TK_LETERAL,
 	TK_INTCONST, TK_UNSIGNED_INTCONST, TK_LONGCONST, TK_UNSIGNED_LONGCONST, 
 	TK_LLONGCONST, TK_UNSIGNED_LLONGCONST, TK_FLOATCONST, TK_DOUBLECONST, TK_LDOUBLECONST,
 	/*identifier*/
@@ -49,12 +49,13 @@ typedef union _token_value_t {
 typedef struct _token_t{
 	int tk_kind;
 	int line;		//the line of this token;
-	token_value_t token_value;  
+	token_value_t token_value;
 }token_t;
 
 typedef void (*lex_scan_func)();
 
-extern lex_scan_func g_scanner_func[255];
+/*lexcial scanner*/
+extern lex_scan_func g_scanner[255];
 
 BOOL is_letter(char *ptr);
 BOOL is_digit(char *ptr);
@@ -95,5 +96,12 @@ void scan_bad_letter();
 
 
 void get_next_token(input_file_t *input_file);
+
+/*keywords hash*/
+extern int g_keywords_hashtable[100];
+
+int hash_keywords(char *ptr, int len);
+void init_keywords_hashtable();
+int get_keyword_token(int hashvlaue);
 
 #endif
