@@ -15,8 +15,10 @@ typedef struct _input_file_t {
 	int size;
 }input_file_t;
 
-void load_file(char *file_name, input_file_t *input_file);
+extern input_file_t g_input_file;
 
-void unload_file(input_file_t *input_file);
+void load_file(char *file_name);
+
+void unload_file();
 
 #endif

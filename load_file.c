@@ -1,8 +1,8 @@
 #include "bcc.h"
 
+input_file_t g_input_file;
 
-
-void load_file(char *file_name, input_file_t *input_file)
+void load_file(char *file_name)
 {
 	HANDLE file_handle, file_mapping_handle;
 	int file_size;
@@ -15,19 +15,19 @@ void load_file(char *file_name, input_file_t *input_file)
 
 	file_mapping_handle = CreateFileMapping(file_handle, NULL, PAGE_READWRITE, 0, file_size + 1, NULL);
 
-	input_file->cursor = input_file->base = (unsigned char*)MapViewOfFile(file_mapping_handle, FILE_MAP_WRITE, 0, 0, 0);
-	input_file->file_name = file_name;
-	input_file->h_file = file_handle;
-	input_file->h_filemapping = file_mapping_handle;
-	input_file->line = 1;
-	input_file->base[file_size] = END_OF_FILE;
+	g_input_file.cursor = g_input_file.base = (unsigned char*)MapViewOfFile(file_mapping_handle, FILE_MAP_WRITE, 0, 0, 0);
+	g_input_file.file_name = file_name;
+	g_input_file.h_file = file_handle;
+	g_input_file.h_filemapping = file_mapping_handle;
+	g_input_file.line = 1;
+	g_input_file.base[file_size] = END_OF_FILE;
 }
 
-void unload_file(input_file_t *input_file)
+void unload_file()
 {
-	UnmapViewOfFile(input_file->base);
-	CloseHandle(input_file->h_filemapping);
-	SetFilePointer(input_file->h_file, input_file->size, NULL, FILE_BEGIN);
-	SetEndOfFile(input_file->h_file);
-	CloseHandle(input_file->h_file);
+	UnmapViewOfFile(g_input_file.base);
+	CloseHandle(g_input_file.h_filemapping);
+	SetFilePointer(g_input_file.h_file, g_input_file.size, NULL, FILE_BEGIN);
+	SetEndOfFile(g_input_file.h_file);
+	CloseHandle(g_input_file.h_file);
 }

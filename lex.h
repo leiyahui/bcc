@@ -52,24 +52,26 @@ typedef struct _token_t{
 	token_value_t token_value;  
 }token_t;
 
-typedef void* (*lex_scan_func)();
+typedef void (*lex_scan_func)();
 
-void init_scanner(lex_scan_func *scanner_fun);
+extern lex_scan_func g_scanner_func[255];
 
 BOOL is_letter(char *ptr);
 BOOL is_digit(char *ptr);
 BOOL is_underline(char *ptr);
 
+void init_scanner();
+
 void scan_identity();
 void scan_number();
 void scan_string();
-void scan_letter();
+void scan_character();
 void scan_comma();
 void scan_question_mark();
 void scan_colon();
 void scan_equal_sign();
-void scan_bar();
-void scan_Ampersand();
+void scan_or();
+void scan_and();
 void scan_less();
 void scan_great();
 void scan_add();
@@ -88,7 +90,10 @@ void scan_lbracket();
 void scan_rbracket();
 void scan_semicolon();
 void scan_exclamation();
-void scan_hyphen();		
+void scan_file_end();
+void scan_bad_letter();
+
+
 void get_next_token(input_file_t *input_file);
 
 #endif
