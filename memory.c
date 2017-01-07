@@ -24,3 +24,18 @@ void bcc_free(void *ptr)
 	ptr = NULL;
 }
 
+char* bcc_strcpy(char *dest, const char *src)
+{
+	if (dest == NULL || src == NULL) {
+		return NULL;
+	}
+	return strcpy(dest ,src);
+}
+
+char *bcc_strncpy(char *dest, const char *src, int len)
+{
+	if (dest == NULL || src == NULL) {
+		return NULL;
+	}
+	return strncpy(dest, src, len);
+}

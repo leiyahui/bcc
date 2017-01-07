@@ -21,3 +21,11 @@ BOOL bcc_strnequal(const char *str1, const char *str2, unsigned int ch_count)
 	}
 	return TRUE;
 }
+
+int bcc_strlen(const char *str)
+{
+	if (str == NULL) {
+		return 0;
+	}
+	return strlen(str);
+}

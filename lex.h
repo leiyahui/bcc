@@ -97,11 +97,48 @@ void scan_bad_letter();
 
 void get_next_token(input_file_t *input_file);
 
-/*keywords hash*/
-extern int g_keywords_hashtable[100];
+/*keywords and identify hash*/
 
-int hash_keywords(char *ptr, int len);
-void init_keywords_hashtable();
-int get_keyword_token(int hashvlaue);
+int get_string_key(char *str, int len);
+
+/*keywords*/
+#define KEYWORD_HASHTABLE_NUM	100
+
+typedef struct _keyword_ele_t {
+	int key;
+	int token;
+}keyword_ele_t;
+
+
+extern keyword_ele_t g_keywords_hashtable[KEYWORD_HASHTABLE_NUM];
+int hash_keywords(int key_value);
+void init_keywords_hash();
+void insert_keyword_hash(char *keyword, int token);
+int lookup_keywords(char *str, int len);
+
+/*identify hash*/
+typedef struct _identify_ele_t {
+	int key;
+	char *p_ident;
+	struct _identify_ele_t *next;
+}identify_ele_t;
+
+typedef struct _identify_hashtable_t {
+	int size;
+	int ele_num;
+	identify_ele_t **iden_ele;
+}identify_hashtable_t;
+
+
+#define DEFAULT_IDENTIFY_HASHTABLE_NUM 200
+
+extern identify_hashtable_t g_identify_hashtable;
+int hash_identify(int key_value);
+void init_identify_hashtable();
+char* insert_identify_hash(char *identify, int len);
+char* lookup_identify_ptr(char *identify, int len);
+
+
+
 
 #endif

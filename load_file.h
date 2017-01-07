@@ -7,8 +7,8 @@
 
 typedef struct _input_file_t {
 	char* file_name;
-	unsigned char* base;
-	unsigned char *cursor;
+	char* base;
+	char *cursor;
 	HANDLE h_file;
 	HANDLE h_filemapping;
 	int line;
