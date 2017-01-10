@@ -93,33 +93,29 @@ BOOL is_scan_end(char letter)
 /*identity contains keywords and varible name or function name that user declared*/
 void scan_identity()
 {
-	char *base_ptr, *curr_ptr;
+	char *base_ptr;
 	char *identify_ptr;
-	char curr_letter;
 	int str_len, tk_kind;
 
-	base_ptr = curr_ptr = g_input_file.cursor;
-	curr_letter = *curr_ptr;
-	while (!is_scan_end(curr_letter)) {
-		curr_ptr++;
+	base_ptr = G_CURSOR;
+	while (!is_scan_end(*G_CURSOR)) {
+		G_CURSOR++;
 	}
-	g_input_file.cursor = curr_ptr;
-	str_len = curr_ptr - base_ptr;
+	str_len = G_CURSOR - base_ptr;
 
 	tk_kind = lookup_keywords(base_ptr, str_len);
-	if (tk_kind) {								//identify is keyword
-		g_current_token.tk_kind = tk_kind;
-		g_current_token.line = G_LINE;
-		return ;
+
+	if (!tk_kind) {				//not keywords
+		identify_ptr = lookup_identify_hash(base_ptr, str_len);
+		if (!identify_ptr) {
+			identify_ptr = insert_identify_hash(base_ptr, str_len);
+		}
+		tk_kind = TK_IDENTIFIER;
+		g_current_token.token_value.ptr = identify_ptr; 
 	}
-	identify_ptr = lookup_identify_hash(base_ptr, str_len);
-	if (!identify_ptr) {
-		identify_ptr = insert_identify_hash(base_ptr, str_len);
-	}
-	tk_kind = TK_IDENTIFIER;
 	g_current_token.tk_kind = tk_kind;
 	g_current_token.line = G_LINE;
-	g_current_token.token_value.ptr = identify_ptr; 
+	
 }
 
 /*contain octal decimal hex*/ 
