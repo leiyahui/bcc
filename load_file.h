@@ -17,6 +17,9 @@ typedef struct _input_file_t {
 
 extern input_file_t g_input_file;
 
+#define G_CURSOR	g_input_file.cursor
+#define G_LINE		g_input_file.line;
+
 void load_file(char *file_name);
 
 void unload_file();

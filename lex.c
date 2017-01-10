@@ -7,7 +7,7 @@ token_t g_current_token;
 
 BOOL is_digit(int ascii_value)
 {
-	if (ascii_value >= 48 && ascii_value <= 57) {
+	if (ascii_value >= '0' && ascii_value <= '9') {
 		return TRUE;
 	}
 	return FALSE;
@@ -15,8 +15,8 @@ BOOL is_digit(int ascii_value)
 
 BOOL is_letter(int ascii_value)
 {
-	if (ascii_value >= 65 && ascii_value <= 90
-		|| ascii_value >= 97 && ascii_value <= 122) {
+	if (ascii_value >= 'a' && ascii_value <= 'z'
+		|| ascii_value >= 'A' && ascii_value <= 'Z') {
 			return TRUE;
 	}
 	return FALSE;
@@ -24,7 +24,7 @@ BOOL is_letter(int ascii_value)
 
 BOOL is_underline(int ascii_value)
 {
-	if (ascii_value == 95) {
+	if (ascii_value == '_') {
 		return TRUE;
 	}
 	return FALSE;
@@ -48,7 +48,7 @@ void init_scanner()
 		} else if (is_digit(ascii_value)) {
 			g_scanner[ascii_value] = scan_number;
 		} else if(is_file_end(ascii_value)) {
-			g_scanner[ascii_value] == scan_file_end;
+			g_scanner[ascii_value] = scan_file_end;
 		} else {
 			g_scanner[ascii_value] = scan_bad_letter;
 		}
@@ -90,16 +90,15 @@ BOOL is_scan_end(char letter)
 	return FALSE;
 }
 
+/*identity contains keywords and varible name or function name that user declared*/
 void scan_identity()
 {
 	char *base_ptr, *curr_ptr;
 	char *identify_ptr;
 	char curr_letter;
-	int str_len, token;
-	token_value_t token_value;
+	int str_len, tk_kind;
 
-
-	base_ptr = curr_ptr = g_input_file.base;
+	base_ptr = curr_ptr = g_input_file.cursor;
 	curr_letter = *curr_ptr;
 	while (!is_scan_end(curr_letter)) {
 		curr_ptr++;
@@ -107,20 +106,344 @@ void scan_identity()
 	g_input_file.cursor = curr_ptr;
 	str_len = curr_ptr - base_ptr;
 
-	token = lookup_keywords(base_ptr, str_len);
-	if (token) {								//identify is keyword
-		g_current_token.tk_kind = token;
-		g_current_token.line = g_input_file.line;
+	tk_kind = lookup_keywords(base_ptr, str_len);
+	if (tk_kind) {								//identify is keyword
+		g_current_token.tk_kind = tk_kind;
+		g_current_token.line = G_LINE;
 		return ;
 	}
-	identify_ptr = lookup_identify_ptr(base_ptr, str_len);
+	identify_ptr = lookup_identify_hash(base_ptr, str_len);
 	if (!identify_ptr) {
 		identify_ptr = insert_identify_hash(base_ptr, str_len);
 	}
-	token = TK_IDENTIFIER;
-	g_current_token.tk_kind = token;
-	g_current_token.line = g_input_file.line;
+	tk_kind = TK_IDENTIFIER;
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
 	g_current_token.token_value.ptr = identify_ptr; 
+}
+
+/*contain octal decimal hex*/ 
+
+#define SIGNED_CHAR_MAX				127
+#define SIGNED_CHAR_MIN				-128
+
+#define SIGNED_SHORT_MAX			32767
+#define SIGNED_SHORT_MIN			-32768
+#define UNSIGNED_SHORT_MAX			65535
+#define UNSIGNED_SHORT_MIN			0
+
+#define SIGNED_INT_MAX				2147483647
+#define SIGNED_INT_MIN				-2147483648
+#define UNSIGNED_INT_MAX			4294967295
+#define UNSIGNED_INT_MIN			0
+
+#define SIGNED_LONG_MAX				2147483647
+#define SIGNED_LONG_MIN				-2147483648
+#define UNSIGNED_LONG_MAX			4294967295
+#define UNSIGNED_LONG_MIN			0
+
+
+BOOL is_dot(int ascii)
+{
+	if (ascii == '.') {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_e_or_E(int ascii)
+{
+	if (ascii == 'e' || ascii == 'E') {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_sign(int ascii)
+{
+	if (ascii == '+' || ascii == '-') {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_octal_number(int ascii)
+{
+	if (ascii >= '0' && ascii <= '9') {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_hex_number(int ascii)
+{
+	if (ascii >= '0' && ascii <= '9' ||
+		ascii >= 'A' && ascii <= 'F' ||
+		ascii >= 'a' && ascii <= 'f') {
+			return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_floating(char *str)
+{
+	char *curr_ptr;
+
+	curr_ptr = str;
+	if (curr_ptr[0] = '0' && curr_ptr[1] == 'x' || curr_ptr[1] == 'X') {		//hex number
+		return FALSE;
+	}
+
+	while (is_digit(*curr_ptr)) {
+		curr_ptr++;
+	}
+	if (is_dot(*curr_ptr) || is_e_or_E(*curr_ptr)) {				//floating
+		return TRUE;
+	}
+	return FALSE;
+}
+
+/*
+floating-constant:
+fractional-constant exponent-part<opt> floating-suffix<opt>
+digit-sequence exponent-part floating-suffix<opt>
+
+fractional-constant:
+digit-sequence<opt>.digit-sequence
+digit-sequence.
+
+exponent-part:
+e  sign<opt> digit-sequence
+E  sign<opt> digit-sequence
+
+sign: one of
++  -
+
+digit-sequence:
+digit
+digit-sequence digit
+
+floating-suffix: one of
+f  l  F  L
+*/
+
+void scan_exponent_part()
+{
+	G_CURSOR++;
+	if (is_sign(*G_CURSOR)){
+		G_CURSOR++;
+	}
+	while (is_digit(*G_CURSOR)) {
+		G_CURSOR++;
+	}
+}
+
+int scan_floating_suffix()
+{
+	if (!is_scan_end(*G_CURSOR)) {
+		if (*G_CURSOR == 'f' || *G_CURSOR == 'F') {
+			return TK_FLOATCONST;
+		} else if (*G_CURSOR == 'l' || *G_CURSOR == 'L') {
+			return TK_LDOUBLECONST;
+		} else {
+			error_message("invalid suffix in floating");
+		}
+		G_CURSOR++;
+	}
+	return TK_DOUBLECONST;
+}
+
+void scan_floating()
+{
+	char *base_ptr;
+	int tk_kind;
+	double floating_value;
+
+	base_ptr = G_CURSOR;
+	while (is_digit(*G_CURSOR)) {
+		G_CURSOR++;
+	}
+
+	if (is_dot(*G_CURSOR)) {		//with fraction
+		G_CURSOR++;
+		while (is_digit(*G_CURSOR)) {
+			G_CURSOR++;
+		}
+		if (is_e_or_E(*G_CURSOR)) {
+			scan_exponent_part();
+		}
+	} else if(is_e_or_E(*G_CURSOR)) {		//without fraction
+		scan_exponent_part();
+	} else {
+		error_message("invalid character in floating constant");
+	}
+	
+	tk_kind = scan_floating_suffix();
+	
+	floating_value = strtol(base_ptr, NULL, 0);
+	if (errno = ERANGE) {
+		warn_message("overflow in implicit constant conversion");
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+	g_current_token.token_value.double_num = floating_value;
+}
+
+/*
+The type of an integer constant is the first of the corresponding
+list in which its value can be represented.  Unsuffixed decimal: int,
+long int, unsigned long int; unsuffixed octal or hexadecimal: int,
+unsigned int, long int, unsigned long int; suffixed by the letter u
+or U: unsigned int, unsigned long int; suffixed by the letter l or
+L: long int, unsigned long int; suffixed by both the letters u or U
+and l or L: unsigned long int .s
+*/
+
+#define WITH_UNSIGNED_SUFFIX	0x0001
+#define WITH_LONG_SUFFIX		0x0002
+
+int scan_integer_suffix()
+{
+	int suffix_flag;
+
+	suffix_flag = 0;
+
+	if (!is_scan_end(*G_CURSOR)) {
+		if (*G_CURSOR == 'u' || *G_CURSOR == 'U') {
+			suffix_flag |= WITH_UNSIGNED_SUFFIX;
+		} else if (*G_CURSOR == 'l' || *G_CURSOR == 'L') {
+			suffix_flag |= WITH_LONG_SUFFIX;
+		} else {
+			error_message("invalid suffix in integer");
+		}
+		G_CURSOR++;
+	}
+
+	if (!is_scan_end(*G_CURSOR)) {
+		if (*G_CURSOR == 'u' || *G_CURSOR == 'U') {
+			if (suffix_flag & WITH_UNSIGNED_SUFFIX) {
+				error_message("invalid suffix in integer");
+			}
+			suffix_flag |= WITH_UNSIGNED_SUFFIX;
+		} else if (*G_CURSOR == 'l' || *G_CURSOR == 'L') {
+			if (suffix_flag & WITH_LONG_SUFFIX) {
+				error_message("invalid suffix in integer");
+			}
+			suffix_flag |= WITH_LONG_SUFFIX;
+		}
+		G_CURSOR++;
+	}
+	return suffix_flag;
+}
+
+void scan_decimal_number()
+{
+	while (is_digit(*G_CURSOR)) {
+		G_CURSOR++;
+	}
+}
+
+void scan_octal_number()
+{
+	G_CURSOR++;
+	while (is_octal_number(*G_CURSOR)) {
+		G_CURSOR++;
+	}
+}
+
+void scan_hex_number()
+{
+	G_CURSOR += 2;
+	while (is_hex_number(*G_CURSOR)) {
+		G_CURSOR++;
+	}
+}
+
+int get_integer_tk_kind(int suffix_flag,int base, long int integer_value)
+{
+	int tk_kind;
+	if (suffix_flag == 0) {							//without suffix
+		if (base == 10) {
+			if (integer_value <= SIGNED_INT_MAX) {
+				tk_kind = TK_INTCONST;
+			} else if (integer_value <= SIGNED_LONG_MAX) {
+				tk_kind = TK_LONGCONST;
+			} else {
+				tk_kind = TK_UNSIGNED_LONGCONST;
+			}
+		} else {
+			if (integer_value <= SIGNED_INT_MAX) {
+				tk_kind = TK_INTCONST;
+			} else if (integer_value <= UNSIGNED_INT_MAX) {
+				tk_kind = TK_UNSIGNED_INTCONST;
+			} else if (integer_value <= SIGNED_LONG_MAX) {
+				tk_kind = TK_LONGCONST;
+			} else {
+				tk_kind = TK_UNSIGNED_LONGCONST;
+			}
+		}
+	} else if (suffix_flag & WITH_UNSIGNED_SUFFIX 
+		&& !(suffix_flag & WITH_LONG_SUFFIX)) {
+			if (integer_value < UNSIGNED_INT_MAX) {
+				tk_kind = TK_UNSIGNED_INTCONST;
+			} else {
+				tk_kind = TK_UNSIGNED_LONGCONST;
+			}
+	} else if (!(suffix_flag & WITH_UNSIGNED_SUFFIX)
+		&& suffix_flag & WITH_LONG_SUFFIX) {
+			if (integer_value < SIGNED_LONG_MAX) {
+				tk_kind = TK_LONGCONST;
+			} else {
+				tk_kind = TK_UNSIGNED_LONGCONST;
+			}
+	} else {
+		tk_kind = TK_UNSIGNED_LONGCONST;
+	}
+	return tk_kind;
+}
+
+void scan_integer()
+{
+	char *base_ptr;
+	long int integer_value;
+	int base, suffix_flag;
+	int tk_kind;
+
+	base_ptr = G_CURSOR;
+	if (base_ptr[0] != '0') {										/*10 binary*/
+		scan_decimal_number();		
+		base = 10;
+	} else if (base_ptr[1] == 'x' || base_ptr[1] == 'X') {			/*8 binary*/
+		scan_hex_number();
+		base = 16;
+	} else {														/*16 binary*/
+		scan_octal_number();
+		base = 8;
+	}
+	
+	suffix_flag = 0;
+	suffix_flag = scan_integer_suffix();
+
+	integer_value = strtol(base_ptr, NULL, 0);
+	if (errno == ERANGE) {
+		warn_message("overflow in implicit constant conversion");
+	}
+
+	tk_kind = get_integer_tk_kind(suffix_flag, base, integer_value);
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+	g_current_token.token_value.long_num = integer_value;
+}
+
+void scan_number()
+{
+	if (is_floating(G_CURSOR)) {
+		scan_floating();
+	} else {
+		scan_integer();
+	}
 }
 
 
@@ -295,7 +618,7 @@ char* insert_identify_hash(char *identify, int len)
 	return new_ident_ele->p_ident;
 }
 
-char* lookup_identify_ptr(char *identify, int len)
+char* lookup_identify_hash(char *identify, int len)
 {
 	int key_value;
 	int hash_value;

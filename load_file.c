@@ -15,7 +15,7 @@ void load_file(char *file_name)
 
 	file_mapping_handle = CreateFileMapping(file_handle, NULL, PAGE_READWRITE, 0, file_size + 1, NULL);
 
-	g_input_file.cursor = g_input_file.base = (unsigned char*)MapViewOfFile(file_mapping_handle, FILE_MAP_WRITE, 0, 0, 0);
+	g_input_file.cursor = g_input_file.base = (char*)MapViewOfFile(file_mapping_handle, FILE_MAP_WRITE, 0, 0, 0);
 	g_input_file.file_name = file_name;
 	g_input_file.h_file = file_handle;
 	g_input_file.h_filemapping = file_mapping_handle;

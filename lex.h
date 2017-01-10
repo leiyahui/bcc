@@ -57,9 +57,9 @@ typedef void (*lex_scan_func)();
 /*lexcial scanner*/
 extern lex_scan_func g_scanner[255];
 
-BOOL is_letter(char *ptr);
-BOOL is_digit(char *ptr);
-BOOL is_underline(char *ptr);
+BOOL is_letter(int ascii);
+BOOL is_digit(int ascii);
+BOOL is_underline(int ascii);
 
 void init_scanner();
 
@@ -136,7 +136,7 @@ extern identify_hashtable_t g_identify_hashtable;
 int hash_identify(int key_value);
 void init_identify_hashtable();
 char* insert_identify_hash(char *identify, int len);
-char* lookup_identify_ptr(char *identify, int len);
+char* lookup_identify_hash(char *identify, int len);
 
 
 
