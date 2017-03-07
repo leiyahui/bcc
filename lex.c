@@ -44,7 +44,7 @@ void init_scanner()
 
 	for (ascii_value = 0; ascii_value <= 255; ascii_value++) {
 		if (is_letter(ascii_value) || is_underline(ascii_value)) {
-			g_scanner[ascii_value] = scan_identity;
+			g_scanner[ascii_value] = scan_identifier;
 		} else if (is_digit(ascii_value)) {
 			g_scanner[ascii_value] = scan_number;
 		} else if(is_file_end(ascii_value)) {
@@ -54,7 +54,7 @@ void init_scanner()
 		}
 	}
 
-	g_scanner['"'] = scan_string;
+	g_scanner['"'] = scan_string_literal;
 	g_scanner['\''] = scan_character;
 	g_scanner[','] = scan_comma;
 	g_scanner['?'] = scan_question_mark;
@@ -90,16 +90,50 @@ BOOL is_scan_end(char letter)
 	return FALSE;
 }
 
-/*identity contains keywords and varible name or function name that user declared*/
-void scan_identity()
+static void scan_w_string() {
+
+}
+
+static void scan_w_character() {
+
+}
+
+static BOOL is_valid_identifier_ele(char character)
+{
+	if (is_digit(character) || is_underline(character) || is_letter(character)) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+/*
+identity contains keywords and varible name or function name that user declared
+
+
+*/
+void scan_identifier()
 {
 	char *base_ptr;
 	char *identify_ptr;
 	int str_len, tk_kind;
 
 	base_ptr = G_CURSOR;
+	if (*G_CURSOR == 'L' && *(G_CURSOR + 1) == '\"') {  //string
+		scan_w_string();
+		return;
+	}
+	if (*G_CURSOR == 'L' && *(G_CURSOR + 1) == '\'') { // character
+		scan_w_character();
+		return;
+	}
+
+	G_CURSOR++;
 	while (!is_scan_end(*G_CURSOR)) {
-		G_CURSOR++;
+		if (is_valid_identifier_ele(*G_CURSOR)) {
+			G_CURSOR++;
+		} else {
+			log_error("invalid identifier character: %c", *G_CURSOR);
+		}
 	}
 	str_len = G_CURSOR - base_ptr;
 
@@ -442,7 +476,10 @@ void scan_number()
 	}
 }
 
-
+void scan_string_literal()
+{
+	
+}
 /*keywords hash*/
 
 int get_string_key(char *str, int len)
