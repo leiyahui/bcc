@@ -5,7 +5,7 @@ keyword_ele_t g_keywords_hashtable[100];
 identify_hashtable_t g_identify_hashtable;
 token_t g_current_token;
 
-BOOL is_digit(int ascii_value)
+BOOL is_dec_num(int ascii_value)
 {
 	if (ascii_value >= '0' && ascii_value <= '9') {
 		return TRUE;
@@ -30,6 +30,15 @@ BOOL is_underline(int ascii_value)
 	return FALSE;
 }
 
+BOOL is_valid_nondigit(int ascii_value)
+{
+	if (is_letter(ascii_value) || is_valid_nondigit(ascii_value)) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
 BOOL is_file_end(int ascii_value)
 {
 	if (ascii_value == 255) {
@@ -43,9 +52,9 @@ void init_scanner()
 	int ascii_value;
 
 	for (ascii_value = 0; ascii_value <= 255; ascii_value++) {
-		if (is_letter(ascii_value) || is_underline(ascii_value)) {
-			g_scanner[ascii_value] = scan_identity;
-		} else if (is_digit(ascii_value)) {
+		if (is_valid_nondigit(ascii_value)) {
+			g_scanner[ascii_value] = scan_identifier;
+		} else if (is_dec_num(ascii_value)) {
 			g_scanner[ascii_value] = scan_number;
 		} else if(is_file_end(ascii_value)) {
 			g_scanner[ascii_value] = scan_file_end;
@@ -54,7 +63,7 @@ void init_scanner()
 		}
 	}
 
-	g_scanner['"'] = scan_string;
+	g_scanner['"'] = scan_string_literal;
 	g_scanner['\''] = scan_character;
 	g_scanner[','] = scan_comma;
 	g_scanner['?'] = scan_question_mark;
@@ -91,16 +100,33 @@ BOOL is_scan_end(char letter)
 }
 
 /*identity contains keywords and varible name or function name that user declared*/
-void scan_identity()
+void scan_identifier()
 {
 	char *base_ptr;
 	char *identify_ptr;
 	int str_len, tk_kind;
 
+
 	base_ptr = G_CURSOR;
+
+	if (*G_CURSOR == 'L' || *(G_CURSOR + 1) == '\'') {
+		scan_w_char();
+		return ;
+	}
+
+	if (*G_CURSOR == 'L' || *(G_CURSOR + 1) == '\"') {
+		scan_w_str_literal();
+	}
+
+
+
 	while (!is_scan_end(*G_CURSOR)) {
 		G_CURSOR++;
+		if (!is_valid_nondigit(*G_CURSOR) && !is_dec_num(*G_CURSOR)) {
+			log_error("invalid character in identifier: %s", base_ptr);
+		}
 	}
+
 	str_len = G_CURSOR - base_ptr;
 
 	tk_kind = lookup_keywords(base_ptr, str_len);
@@ -190,7 +216,7 @@ BOOL is_floating(char *str)
 		return FALSE;
 	}
 
-	while (is_digit(*curr_ptr)) {
+	while (is_dec_num(*curr_ptr)) {
 		curr_ptr++;
 	}
 	if (is_dot(*curr_ptr) || is_e_or_E(*curr_ptr)) {				//floating
@@ -229,7 +255,7 @@ void scan_exponent_part()
 	if (is_sign(*G_CURSOR)){
 		G_CURSOR++;
 	}
-	while (is_digit(*G_CURSOR)) {
+	while (is_dec_num(*G_CURSOR)) {
 		G_CURSOR++;
 	}
 }
@@ -256,13 +282,13 @@ void scan_floating()
 	double floating_value;
 
 	base_ptr = G_CURSOR;
-	while (is_digit(*G_CURSOR)) {
+	while (is_dec_num(*G_CURSOR)) {
 		G_CURSOR++;
 	}
 
 	if (is_dot(*G_CURSOR)) {		//with fraction
 		G_CURSOR++;
-		while (is_digit(*G_CURSOR)) {
+		while (is_dec_num(*G_CURSOR)) {
 			G_CURSOR++;
 		}
 		if (is_e_or_E(*G_CURSOR)) {
@@ -335,7 +361,7 @@ int scan_integer_suffix()
 
 void scan_decimal_number()
 {
-	while (is_digit(*G_CURSOR)) {
+	while (is_dec_num(*G_CURSOR)) {
 		G_CURSOR++;
 	}
 }
@@ -442,6 +468,21 @@ void scan_number()
 	}
 }
 
+/*string or character*/
+
+void scan_character()
+{
+
+}
+
+void scan_string_literal()
+{
+	
+}
+
+void scan_w_char();
+
+void scan_w_str_literal();
 
 /*keywords hash*/
 

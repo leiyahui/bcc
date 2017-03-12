@@ -63,9 +63,9 @@ BOOL is_underline(int ascii);
 
 void init_scanner();
 
-void scan_identity();
+void scan_identifier();
 void scan_number();
-void scan_string();
+void scan_string_literal();
 void scan_character();
 void scan_comma();
 void scan_question_mark();
