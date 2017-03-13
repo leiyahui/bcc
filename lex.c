@@ -110,12 +110,13 @@ void scan_identifier()
 	base_ptr = G_CURSOR;
 
 	if (*G_CURSOR == 'L' || *(G_CURSOR + 1) == '\'') {
-		scan_w_char();
-		return ;
+		scan_w_character();
+		return;
 	}
 
 	if (*G_CURSOR == 'L' || *(G_CURSOR + 1) == '\"') {
 		scan_w_str_literal();
+		return;
 	}
 
 
@@ -470,8 +471,146 @@ void scan_number()
 
 /*string or character*/
 
+/*For example, 'ab' for a target with an 8-bit char would be interpreted as ¡®(int) ((unsigned char) 'a' * 256 + (unsigned char) 'b')¡¯, and '\234a' as ¡®(int) ((unsigned char) '\234' * 256 + (unsigned char) 'a')¡¯.*/
+
+static unsigned char scan_character_hex()			//most two Bit hex
+{
+	unsigned char hex_value;
+
+	if (!is_hex_number(*G_CURSOR)) {
+		log_error("\\x used hex without hex digits");
+	}
+	hex_value = *G_CURSOR;
+
+	G_CURSOR++;
+	if (is_hex_number(*G_CURSOR)) {
+		hex_value <<= 4;
+		hex_value += *G_CURSOR;
+	}
+
+	return hex_value;
+}
+
+static unsigned char scan_character_oct()		//most three Bit oct
+{
+	unsigned char oct_value;
+
+	oct_value = *G_CURSOR;
+
+	G_CURSOR++;
+	if (is_octal_number(*G_CURSOR)) {
+		oct_value <<= 3;
+		oct_value += *G_CURSOR;
+	}
+
+	G_CURSOR++;
+	if (is_octal_number(*G_CURSOR)) {
+		oct_value <<= 3;
+		oct_value += *G_CURSOR;
+	} else {
+		G_CURSOR--;
+	}
+
+	return oct_value;
+}
+
+static BOOL is_hex_escape_sequce(unsigned char character) {
+	if (character == 'x') {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static BOOL is_simple_escape_sequence(unsigned char character) {
+	if (character == '\''
+		|| character == '"'
+		|| character == '?'
+		|| character == '\\'
+		|| character == 'a'
+		|| character == 'b'
+		|| character == 'f'
+		|| character == 'n'
+		|| character == 'r'
+		|| character == 't'
+		|| character == 'v') {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static unsigned char trans_simple_escape_sequence_to_ascii(unsigned char character)
+{
+	unsigned char ret_char;
+
+	if (character == '\'' 
+		|| character == '\\'
+		|| character == '"'
+		|| character == '?') {
+		ret_char = character;
+	} else if (character == 'a') {
+		ret_char = '\a';
+	} else if (character == 'b') {
+		ret_char = '\b';
+	} else if (character == 'f') {
+		ret_char = '\f';
+	} else if (character == 'n') {
+		ret_char = '\n';
+	} else if (character == 'r') {
+		ret_char = '\r';
+	} else if (character == 't') {
+		ret_char = '\t';
+	} else if (character == 'v') {
+		ret_char = '\v';
+	} else {
+		log_error("unknow escape sequence: %c", character);
+	}
+	return ret_char;
+}
+
+static unsigned char scan_one_character()
+{
+	unsigned char ret_char;
+
+	if (*G_CURSOR == '\\') {			//escape sequence
+		G_CURSOR++;
+		if (is_hex_escape_sequce(*G_CURSOR)) {			//hex escape sequence
+			G_CURSOR++;						//jump 'x'
+			ret_char = scan_character_hex();
+		} else if (is_octal_number(*G_CURSOR)) {  //oct escape sequence
+			ret_char = scan_character_oct();
+		} else {
+			ret_char = trans_simple_escape_sequence_to_ascii(*G_CURSOR);  //simple escape sequence
+		}
+	} else if (*G_CURSOR >= '!' && *G_CURSOR <= '~') {
+		ret_char = *G_CURSOR;
+		if (ret_char == '\'') {
+			log_error("empty character constant");
+		}
+	} else {
+		log_error("invalid character constant");
+	}
+
+	return ret_char;
+}
+
 void scan_character()
 {
+	unsigned char temp_character;
+	int character_value;
+
+	G_CURSOR++;
+
+	temp_character = scan_one_character();
+	character_value = temp_character;
+
+	while (*G_CURSOR != '\'') {
+		temp_character = scan_one_character();
+		character_value <<= 8;
+		character_value += temp_character;
+	}
+	g_current_token.tk_kind = TK_INTCONST;
+	g_current_token.token_value.int_num = character_value;
+	g_current_token.line = G_LINE;
 
 }
 
@@ -480,9 +619,15 @@ void scan_string_literal()
 	
 }
 
-void scan_w_char();
+void scan_w_character()
+{
 
-void scan_w_str_literal();
+}
+
+void scan_w_str_literal()
+{
+
+}
 
 /*keywords hash*/
 

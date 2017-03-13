@@ -58,7 +58,7 @@ typedef void (*lex_scan_func)();
 extern lex_scan_func g_scanner[255];
 
 BOOL is_letter(int ascii);
-BOOL is_digit(int ascii);
+BOOL is_dec_num(int ascii);
 BOOL is_underline(int ascii);
 
 void init_scanner();
@@ -67,6 +67,8 @@ void scan_identifier();
 void scan_number();
 void scan_string_literal();
 void scan_character();
+void scan_w_character();
+void scan_w_str_literal();
 void scan_comma();
 void scan_question_mark();
 void scan_colon();
