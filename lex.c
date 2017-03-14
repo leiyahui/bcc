@@ -666,6 +666,59 @@ void scan_w_str_literal()
 
 }
 
+void scan_comma()
+{
+	g_current_token.line = G_LINE;
+	g_current_token.tk_kind = TK_COMMA;
+}
+
+void scan_question_mark()
+{
+	g_current_token.line = G_LINE;
+	g_current_token.tk_kind = TK_QUESTION;
+}
+
+void scan_colon()
+{
+	g_current_token.line = G_LINE;
+	g_current_token.tk_kind = TK_COLON;
+}
+
+void scan_equal_sign()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == ' ') {
+		tk_kind = TK_ASSIGN;
+	} else if (*G_CURSOR == '='){
+		tk_kind = TK_EQUAL;
+	} else {
+		log_error("invalid character after '=' character");
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_or()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == ' ') {
+		tk_kind = TK_BITOR;
+	} else if (*G_CURSOR == '|') {
+		tk_kind = TK_OR;
+	} else if (*G_CURSOR == '=') {
+		tk_kind = TK_BITXOR_ASSIGN;
+	} else {
+		log_error("invalid character after '|' character");
+	}
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
 /*keywords hash*/
 
 int get_string_key(char *str, int len)
