@@ -13,7 +13,15 @@ void* bcc_calloc(unsigned int count, unsigned int size)
 	if (count <= 0 || size <= 0) {
 		return NULL;
 	}
-	return bcc_calloc(count, size);
+	return calloc(count, size);
+}
+
+void *bcc_realloc(void *ptr, unsigned int size)
+{
+	if (ptr == NULL || size <= 0) {
+		return NULL;
+	}
+	return realloc(ptr, size);
 }
 
 void bcc_free(void *ptr)
@@ -39,3 +47,4 @@ char *bcc_strncpy(char *dest, const char *src, int len)
 	}
 	return strncpy(dest, src, len);
 }
+
