@@ -486,6 +486,7 @@ static unsigned char scan_character_hex()			//most two Bit hex
 	if (is_hex_number(*G_CURSOR)) {
 		hex_value <<= 4;
 		hex_value += *G_CURSOR;
+		G_CURSOR++;
 	}
 
 	return hex_value;
@@ -507,8 +508,7 @@ static unsigned char scan_character_oct()		//most three Bit oct
 	if (is_octal_number(*G_CURSOR)) {
 		oct_value <<= 3;
 		oct_value += *G_CURSOR;
-	} else {
-		G_CURSOR--;
+		G_CURSOR++;
 	}
 
 	return oct_value;
@@ -580,6 +580,7 @@ static unsigned char scan_one_character(BOOL scan_in_str)
 			ret_char = scan_character_oct();
 		} else {
 			ret_char = trans_simple_escape_sequence_to_ascii(*G_CURSOR);  //simple escape sequence
+			G_CURSOR++;
 		}
 	} else if (*G_CURSOR >= '!' && *G_CURSOR <= '~') {
 		ret_char = *G_CURSOR;
@@ -592,6 +593,7 @@ static unsigned char scan_one_character(BOOL scan_in_str)
 				log_error("empty character constant");
 			}
 		}
+		G_CURSOR++;
 	} else {
 		if (scan_in_str == TRUE) {
 			log_error("invalid string constant");
@@ -668,18 +670,21 @@ void scan_w_str_literal()
 
 void scan_comma()
 {
+	G_CURSOR++;
 	g_current_token.line = G_LINE;
 	g_current_token.tk_kind = TK_COMMA;
 }
 
 void scan_question_mark()
 {
+	G_CURSOR++;
 	g_current_token.line = G_LINE;
 	g_current_token.tk_kind = TK_QUESTION;
 }
 
 void scan_colon()
 {
+	G_CURSOR++;
 	g_current_token.line = G_LINE;
 	g_current_token.tk_kind = TK_COLON;
 }
@@ -688,13 +693,31 @@ void scan_equal_sign()
 {
 	int tk_kind;
 
+	tk_kind = TK_ASSIGN;
+
 	G_CURSOR++;
-	if (*G_CURSOR == ' ') {
-		tk_kind = TK_ASSIGN;
-	} else if (*G_CURSOR == '='){
+	if (*G_CURSOR == '=') {
 		tk_kind = TK_EQUAL;
+		G_CURSOR++;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_and()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_BITAND_ASSIGN;
+		G_CURSOR++;
+	} else if (*G_CURSOR == '&') {
+		tk_kind = TK_AND;
+		G_CURSOR++;
 	} else {
-		log_error("invalid character after '=' character");
+		tk_kind = TK_BITAND;
 	}
 
 	g_current_token.tk_kind = tk_kind;
@@ -706,17 +729,265 @@ void scan_or()
 	int tk_kind;
 
 	G_CURSOR++;
-	if (*G_CURSOR == ' ') {
-		tk_kind = TK_BITOR;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_BITOR_ASSIGN;
+		G_CURSOR++;
 	} else if (*G_CURSOR == '|') {
 		tk_kind = TK_OR;
-	} else if (*G_CURSOR == '=') {
-		tk_kind = TK_BITXOR_ASSIGN;
+		G_CURSOR++;
 	} else {
-		log_error("invalid character after '|' character");
+		tk_kind = TK_BITOR;
 	}
+
 	g_current_token.tk_kind = tk_kind;
 	g_current_token.line = G_LINE;
+}
+
+void scan_less()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '<') {
+		tk_kind = TK_LSHIFT;
+		G_CURSOR++;
+		if (*G_CURSOR == '=') {
+			tk_kind = TK_LSHIFT_ASSIGN;
+		}
+		G_CURSOR++;
+	} else if (*G_CURSOR == '=') {
+		tk_kind = TK_LESS_EQUAL;
+		G_CURSOR++;
+	} else {
+		tk_kind = TK_LESS;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_great()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '>') {
+		tk_kind = TK_RSHIFT;
+		G_CURSOR++;
+		if (*G_CURSOR == '=') {
+			tk_kind = TK_RSHIFT_ASSIGN;
+			G_CURSOR++;
+		}
+	} else if (*G_CURSOR == '=') {
+		tk_kind = TK_GREAT_EQUAL;
+		G_CURSOR++;
+	} else {
+		tk_kind = TK_GREAT;
+	}
+	
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_add()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '+') {
+		tk_kind = TK_INC;
+		G_CURSOR++;
+	} else if (*G_CURSOR == '=') {
+		tk_kind = TK_ADD_ASSING;
+		G_CURSOR++;
+	} else {
+		tk_kind = TK_ADD;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_minus()
+{
+	int tk_kind;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '-') {
+		tk_kind = TK_DEC;
+		G_CURSOR++;
+	} else if (*G_CURSOR == '=') {
+		tk_kind = TK_SUB_ASSIGN;
+		G_CURSOR++;
+	} else if (*G_CURSOR == '>') {
+		tk_kind = TK_POINTER;
+		G_CURSOR++;
+	} else {
+		tk_kind = TK_SUB;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_multi()
+{
+	int tk_kind;
+
+	tk_kind = TK_MULTIPLY;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_MULTI_ASSIGN;
+		G_CURSOR++;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_divide()
+{
+	int tk_kind;
+
+	tk_kind = TK_DIVIDE;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_DIVIDE_ASSIGN;
+		G_CURSOR++;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_percent()
+{
+	int tk_kind;
+
+	tk_kind = TK_MOD;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_MOD_ASSIGN;
+		G_CURSOR++;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_caret()
+{
+	int tk_kind;
+
+	tk_kind = TK_BITXOR;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_BITXOR_ASSIGN;
+		G_CURSOR++;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_comp()
+{
+	int tk_kind;
+
+	tk_kind = TK_BITREVERT;
+	G_CURSOR++;
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_dot()
+{
+	int tk_kind;
+
+	if (bcc_strnequal(G_CURSOR, "...", 3)) {
+		tk_kind = TK_DOT;
+		G_CURSOR += 1;
+	} else {
+		tk_kind = TK_ELLIPSE;
+		G_CURSOR += 3;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_lparen()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_LPAREN;
+	g_current_token.line = G_LINE;
+}
+
+void scan_rparen()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_LPAREN;
+	g_current_token.line = G_LINE;
+}
+
+void scan_lbrace()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_LBRACE;
+	g_current_token.line = G_LINE;
+}
+
+void scan_rbrace()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_RBRACE;
+	g_current_token.line = G_LINE;
+}
+
+void scan_lbracket()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_LBRACKET;
+	g_current_token.line = G_LINE;
+}
+
+void scan_rbracket()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_RBRACKET;
+	g_current_token.line = G_LINE;
+}
+
+void scan_semicolon()
+{
+	G_CURSOR++;
+	g_current_token.tk_kind = TK_SEMICOLON;
+	g_current_token.line = G_LINE;
+}
+
+void scan_exclamation()
+{
+	int tk_kind;
+
+	tk_kind = TK_NOT;
+
+	G_CURSOR++;
+	if (*G_CURSOR == '=') {
+		tk_kind = TK_NEQUAL;
+		G_CURSOR++;
+	}
+
+	g_current_token.tk_kind = tk_kind;
+	g_current_token.line = G_LINE;
+}
+
+void scan_file_end()
+{
+	
 }
 
 /*keywords hash*/
