@@ -930,7 +930,7 @@ void scan_lparen()
 void scan_rparen()
 {
 	G_CURSOR++;
-	g_current_token.tk_kind = TK_LPAREN;
+	g_current_token.tk_kind = TK_RPAREN;
 	g_current_token.line = G_LINE;
 }
 
