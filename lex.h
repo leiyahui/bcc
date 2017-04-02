@@ -56,7 +56,7 @@ typedef struct _token_t{
 
 typedef void (*lex_scan_func)();
 
-/*lexcial scanner*/
+/*lexical scanner*/
 extern lex_scan_func g_scanner[255];
 
 BOOL is_letter(int ascii);
@@ -115,7 +115,6 @@ typedef struct _keyword_ele_t {
 
 
 extern keyword_ele_t g_keywords_hashtable[KEYWORD_HASHTABLE_NUM];
-int hash_keywords(int key_value);
 void init_keywords_hash();
 void insert_keyword_hash(char *keyword, int token);
 int lookup_keywords(char *str, int len);

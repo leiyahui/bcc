@@ -18,8 +18,9 @@
 
 #include "memory.h"
 #include "common.h"
+#include "load_file.h"
 #include "lex.h"
 #include "output_message.h"
-#include "load_file.h"
+
 
 #endif

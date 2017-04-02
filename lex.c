@@ -124,7 +124,7 @@ void scan_identifier()
 	while (!is_scan_end(*G_CURSOR)) {
 		G_CURSOR++;
 		if (!is_valid_nondigit(*G_CURSOR) && !is_dec_num(*G_CURSOR)) {
-			log_error("invalid character in identifier: %s", base_ptr);
+			error_message("invalid character in identifier: %s");
 		}
 	}
 
@@ -478,7 +478,7 @@ static unsigned char scan_character_hex()			//most two Bit hex
 	unsigned char hex_value;
 
 	if (!is_hex_number(*G_CURSOR)) {
-		log_error("\\x used hex without hex digits");
+		error_message("\\x used hex without hex digits");
 	}
 	hex_value = *G_CURSOR;
 
@@ -562,7 +562,7 @@ static unsigned char trans_simple_escape_sequence_to_ascii(unsigned char charact
 	} else if (character == 'v') {
 		ret_char = '\v';
 	} else {
-		log_error("unknow escape sequence: %c", character);
+		error_message("unknow escape sequence: %c");
 	}
 	return ret_char;
 }
@@ -586,19 +586,19 @@ static unsigned char scan_one_character(BOOL scan_in_str)
 		ret_char = *G_CURSOR;
 		if (scan_in_str == TRUE) {
 			if (ret_char == '\"') {
-				log_error("empty string constant");
+				error_message("empty string constant");
 			} 
 		} else {
 			if (ret_char == '\'') {
-				log_error("empty character constant");
+				error_message("empty character constant");
 			}
 		}
 		G_CURSOR++;
 	} else {
 		if (scan_in_str == TRUE) {
-			log_error("invalid string constant");
+			error_message("invalid string constant");
 		} else {
-			log_error("invalid character constant");
+			error_message("invalid character constant");
 		}
 	}
 	return ret_char;
@@ -988,6 +988,16 @@ void scan_exclamation()
 void scan_file_end()
 {
 	
+}
+
+void scan_bad_letter()
+{
+
+}
+
+void get_next_token(input_file_t *input_file)
+{
+
 }
 
 /*keywords hash*/
