@@ -9,8 +9,12 @@ typedef struct _input_file_t {
 	char* file_name;
 	char* base;
 	char *cursor;
+#ifdef _WIN32
 	HANDLE h_file;
 	HANDLE h_filemapping;
+#else
+	int fd;
+#endif
 	int line;
 	int size;
 }input_file_t;

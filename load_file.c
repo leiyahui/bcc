@@ -2,6 +2,8 @@
 
 input_file_t g_input_file;
 
+#ifdef _WIN32
+
 void load_file(char *file_name)
 {
 	HANDLE file_handle, file_mapping_handle;
@@ -31,3 +33,21 @@ void unload_file()
 	SetEndOfFile(g_input_file.h_file);
 	CloseHandle(g_input_file.h_file);
 }
+#else
+
+void load_file(char* file_name)
+{
+	int fd, file_size;
+	struct stat f_stat;
+	char *s_addr;
+
+	fd = open(file_name, O_RDONLY);
+	file_size = fstat(fd, &f_stat);
+	s_addr = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	g_input_file.cursor = g_input_file.base = s_addr;
+	g_input_file.file_name = file_name;
+	g_input_file.fd = fd;
+	g_input_file.line = 1;
+	g_input_file.base[file_size] = END_OF_FILE;
+}
+#endif
