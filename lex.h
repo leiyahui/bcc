@@ -58,6 +58,8 @@ typedef void (*lex_scan_func)();
 
 /*lexical scanner*/
 extern lex_scan_func g_scanner[255];
+extern token_t g_current_token;
+
 
 BOOL is_letter(int ascii);
 BOOL is_dec_num(int ascii);
@@ -129,7 +131,7 @@ typedef struct _identify_ele_t {
 typedef struct _identify_hashtable_t {
 	int size;
 	int ele_num;
-	identify_ele_t **iden_ele;
+	identify_ele_t *iden_table;
 }identify_hashtable_t;
 
 
