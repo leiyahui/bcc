@@ -32,7 +32,7 @@ BOOL is_underline(int ascii_value)
 
 BOOL is_valid_nondigit(int ascii_value)
 {
-	if (is_letter(ascii_value) || is_valid_nondigit(ascii_value)) {
+	if (is_letter(ascii_value) || is_underline(ascii_value)) {
 		return TRUE;
 	}
 	return FALSE;
