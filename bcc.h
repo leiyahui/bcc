@@ -16,6 +16,12 @@
 #include <stdlib.h>
 #include <errno.h>
 
+/*cunit*/
+#include <CUnit.h>
+#include <TestDB.h>
+#include <Basic.h>
+
+
 #include "memory.h"
 #include "common.h"
 #include "load_file.h"
