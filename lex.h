@@ -5,7 +5,7 @@
 
 enum TOKEN {
 	/*storage_class_specifier*/
-	TK_AUTO, TK_EXTERN, TK_REGISTER, TK_STATIC, TK_TYPEDEF,
+	TK_AUTO = 1, TK_EXTERN, TK_REGISTER, TK_STATIC, TK_TYPEDEF,
 	/*type qualifier*/
 	TK_CONST, TK_VOLATILE,
 	/*type specifier*/

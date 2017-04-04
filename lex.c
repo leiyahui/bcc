@@ -119,14 +119,13 @@ void scan_identifier()
 	}
 
 	while (!is_scan_end(*G_CURSOR)) {
-		G_CURSOR++;
 		if (!is_valid_nondigit(*G_CURSOR) && !is_dec_num(*G_CURSOR)) {
 			error_message("invalid character in identifier: %s");
 		}
+		G_CURSOR++;
 	}
 
 	str_len = G_CURSOR - base_ptr;
-
 	tk_kind = lookup_keywords(base_ptr, str_len);
 
 	if (!tk_kind) {				//not keywords
@@ -1045,6 +1044,7 @@ int lookup_keywords(char *str, int len)
 		if (g_keywords_hashtable[hash_value].key == key_value) {
 			return g_keywords_hashtable[hash_value].token;
 		}
+		hash_value++;
 	}
 	return 0;
 }
@@ -1204,6 +1204,7 @@ char* lookup_identify_hash(char *identify, int len)
 		if (curr_ident_ele->key == key_value) {
 			return curr_ident_ele->p_ident;
 		}
+		curr_ident_ele = curr_ident_ele->next;
 	}
 	return NULL;
 }
