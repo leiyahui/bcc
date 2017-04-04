@@ -209,7 +209,7 @@ BOOL is_floating(char *str)
 	char *curr_ptr;
 
 	curr_ptr = str;
-	if (curr_ptr[0] = '0' && curr_ptr[1] == 'x' || curr_ptr[1] == 'X') {		//hex number
+	if (curr_ptr[0] == '0' && curr_ptr[1] == 'x' || curr_ptr[1] == 'X') {		//hex number
 		return FALSE;
 	}
 
@@ -257,6 +257,10 @@ void scan_exponent_part()
 	}
 }
 
+/* An unsuffixed floating constant has type double.  If suffixed by
+the letter f or F, it has type float.  If suffixed by the letter l
+or L, it has type long double*/
+
 int scan_floating_suffix()
 {
 	if (!is_scan_end(*G_CURSOR)) {
@@ -299,8 +303,8 @@ void scan_floating()
 	
 	tk_kind = scan_floating_suffix();
 	
-	floating_value = strtol(base_ptr, NULL, 0);
-	if (errno = ERANGE) {
+	floating_value = strtod(base_ptr, NULL);
+	if (errno == ERANGE) {
 		warn_message("overflow in implicit constant conversion");
 	}
 
@@ -444,7 +448,7 @@ void scan_integer()
 	suffix_flag = 0;
 	suffix_flag = scan_integer_suffix();
 
-	integer_value = strtol(base_ptr, NULL, 0);
+	integer_value = strtol(base_ptr, NULL, base);
 	if (errno == ERANGE) {
 		warn_message("overflow in implicit constant conversion");
 	}

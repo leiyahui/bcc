@@ -97,13 +97,44 @@ void test_scan_identifier(void)
 	test_keywords("switch ", TK_SWITCH);
 }
 
+/*test scan number*/
+
+void test_scan_floating(char *f_str, int tk_kind)
+{
+	G_CURSOR = f_str;
+	scan_number();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, tk_kind);
+	CU_ASSERT_DOUBLE_EQUAL(g_current_token.token_value.double_num, strtod(f_str, NULL), 0.001);
+}
+
+void test_scan_integer(char *i_str, int tk_kind, int base)
+{
+	G_CURSOR = i_str;
+	scan_number();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, tk_kind);
+	CU_ASSERT_EQUAL(g_current_token.token_value.double_num, strtol(i_str, NULL, base));
+}
+
+void test_scan_number(void)
+{
+	test_scan_floating("129.0 ", TK_DOUBLECONST);
+	test_scan_floating("1234.e2 ", TK_DOUBLECONST);
+	test_scan_floating("1234.e+5 ", TK_DOUBLECONST);
+	test_scan_floating("1234.5e+5 ", TK_DOUBLECONST);
+	test_scan_floating("1234e5 ", TK_DOUBLECONST);
+	test_scan_floating("1234e-5 ", TK_DOUBLECONST);
+	test_scan_floating("1234.0e5f ", TK_FLOATCONST);
+	test_scan_floating("1234.5F ", TK_FLOATCONST);
+	test_scan_floating("1234.6l ", TK_LDOUBLECONST);
+	test_scan_floating("1234e5L ", TK_LDOUBLECONST);
 
 
-
+}
 
 CU_TestInfo lex_test_arrray[] = {
 	{"is_dec_num:", test_is_dec_num},
 	{"scan_identifier", test_scan_identifier},
+	{"scan_floating", test_scan_number},
 	CU_TEST_INFO_NULL,
 };
 
