@@ -21,7 +21,6 @@ void test_is_dec_num(void)
 }
 
 /*test scan identifier*/
-
 char *trim_str_end(char* ident)
 {
 	int old_len;
@@ -42,7 +41,7 @@ void test_identifier(char *ident)
 	G_CURSOR = ident;
 	scan_identifier();
 	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_IDENTIFIER);
-
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 	new_str = trim_str_end(ident);
 	CU_ASSERT_STRING_EQUAL(g_current_token.token_value.ptr, new_str);
 	bcc_free(new_str);
@@ -53,13 +52,12 @@ void test_keywords(char *ident, int tk_kind)
 	G_CURSOR = ident;
 	scan_identifier();
 	CU_ASSERT_EQUAL(g_current_token.tk_kind, tk_kind);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 }
 
 void test_scan_identifier(void)
 {
 	test_identifier("test_ident ");
-	test_identifier("test_ident\r");
-	test_identifier("test_ident\t");
 	test_identifier("tnedi_tset ");
 	test_identifier("hello ");
 
@@ -98,13 +96,13 @@ void test_scan_identifier(void)
 }
 
 /*test scan number*/
-
 void test_scan_floating(char *f_str, int tk_kind)
 {
 	G_CURSOR = f_str;
 	scan_number();
 	CU_ASSERT_EQUAL(g_current_token.tk_kind, tk_kind);
 	CU_ASSERT_DOUBLE_EQUAL(g_current_token.token_value.double_num, strtod(f_str, NULL), 0.001);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 }
 
 void test_scan_integer(char *i_str, int tk_kind, int base)
@@ -113,6 +111,7 @@ void test_scan_integer(char *i_str, int tk_kind, int base)
 	scan_number();
 	CU_ASSERT_EQUAL(g_current_token.tk_kind, tk_kind);
 	CU_ASSERT_EQUAL(g_current_token.token_value.long_num, strtol(i_str, NULL, base));
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 }
 
 void test_scan_number(void)
@@ -147,28 +146,35 @@ void test_scan_number(void)
 	//test_scan_integer("0x8FFFFFFFFFFFFFFF ", TK_UNSIGNED_LONGCONST, 16);
 
 	/*suffixed integer number*/
-	test_scan_integer("123u", TK_UNSIGNED_INTCONST, 10);
-	test_scan_integer("4294967295u", TK_UNSIGNED_INTCONST, 10);
-	test_scan_integer("037777777777u", TK_UNSIGNED_INTCONST, 8);
-	test_scan_integer("0xFFFFFFFFu", TK_UNSIGNED_INTCONST, 16);
-	test_scan_integer("4294967296u", TK_UNSIGNED_LONGCONST, 10);
-	test_scan_integer("047777777777u", TK_UNSIGNED_LONGCONST, 8);
-	test_scan_integer("0x1FFFFFFFFu", TK_UNSIGNED_LONGCONST, 16);
+	test_scan_integer("123u ", TK_UNSIGNED_INTCONST, 10);
+	test_scan_integer("4294967295u ", TK_UNSIGNED_INTCONST, 10);
+	test_scan_integer("037777777777u ", TK_UNSIGNED_INTCONST, 8);
+	test_scan_integer("0xFFFFFFFFu ", TK_UNSIGNED_INTCONST, 16);
+	test_scan_integer("4294967296u ", TK_UNSIGNED_LONGCONST, 10);
+	test_scan_integer("047777777777u ", TK_UNSIGNED_LONGCONST, 8);
+	test_scan_integer("0x1FFFFFFFFu ", TK_UNSIGNED_LONGCONST, 16);
 
-	test_scan_integer("123l", TK_LONGCONST, 10);
-	test_scan_integer("4294967296l", TK_LONGCONST, 10);
-	test_scan_integer("047777777777l", TK_LONGCONST, 8);
-	test_scan_integer("0x1FFFFFFFFu", TK_UNSIGNED_LONGCONST, 16);
+	test_scan_integer("123l ", TK_LONGCONST, 10);
+	test_scan_integer("4294967296l ", TK_LONGCONST, 10);
+	test_scan_integer("047777777777l ", TK_LONGCONST, 8);
+	test_scan_integer("0x1FFFFFFFFu ", TK_UNSIGNED_LONGCONST, 16);
 	
-	test_scan_integer("4294967296lu", TK_UNSIGNED_LONGCONST, 10);
-	test_scan_integer("047777777777ul", TK_UNSIGNED_LONGCONST, 8);
-	test_scan_integer("0x1FFFFFFFFul", TK_UNSIGNED_LONGCONST, 16);
+	test_scan_integer("4294967296lu ", TK_UNSIGNED_LONGCONST, 10);
+	test_scan_integer("047777777777ul ", TK_UNSIGNED_LONGCONST, 8);
+	test_scan_integer("0x1FFFFFFFFul ", TK_UNSIGNED_LONGCONST, 16);
+}
+
+/*test scan character*/
+void test_scan_character()
+{
+
 }
 
 CU_TestInfo lex_test_arrray[] = {
 	{"is_dec_num:", test_is_dec_num},
 	{"scan_identifier", test_scan_identifier},
 	{"scan_number", test_scan_number},
+	{"scan_character", test_scan_character},
 	CU_TEST_INFO_NULL,
 };
 

@@ -118,10 +118,7 @@ void scan_identifier()
 		return;
 	}
 
-	while (!is_scan_end(*G_CURSOR)) {
-		if (!is_valid_nondigit(*G_CURSOR) && !is_dec_num(*G_CURSOR)) {
-			error_message("invalid character in identifier: %s");
-		}
+	while (is_valid_nondigit(*G_CURSOR) || is_dec_num(*G_CURSOR)) {
 		G_CURSOR++;
 	}
 
@@ -263,17 +260,24 @@ or L, it has type long double*/
 
 int scan_floating_suffix()
 {
-	if (!is_scan_end(*G_CURSOR)) {
-		if (*G_CURSOR == 'f' || *G_CURSOR == 'F') {
-			return TK_FLOATCONST;
-		} else if (*G_CURSOR == 'l' || *G_CURSOR == 'L') {
-			return TK_LDOUBLECONST;
-		} else {
-			error_message("invalid suffix in floating");
-		}
+	int tk_kind;
+
+	switch (*G_CURSOR) {
+	case 'f':
+	case 'F':
 		G_CURSOR++;
+		tk_kind = TK_FLOATCONST;
+		break;
+	case 'l':
+	case 'L':
+		G_CURSOR++;
+		tk_kind = TK_LDOUBLECONST;
+		break;
+	default:
+		tk_kind = TK_DOUBLECONST;
+		break;
 	}
-	return TK_DOUBLECONST;
+	return tk_kind;
 }
 
 void scan_floating()
@@ -322,31 +326,42 @@ int scan_integer_suffix()
 
 	suffix_flag = 0;
 
-	if (!is_scan_end(*G_CURSOR)) {
-		if (*G_CURSOR == 'u' || *G_CURSOR == 'U') {
-			suffix_flag |= WITH_UNSIGNED_SUFFIX;
-		} else if (*G_CURSOR == 'l' || *G_CURSOR == 'L') {
-			suffix_flag |= WITH_LONG_SUFFIX;
-		} else {
-			error_message("invalid suffix in integer");
-		}
+	switch (*G_CURSOR) {
+	case 'u':
+	case 'U':
+		suffix_flag |= WITH_UNSIGNED_SUFFIX;
 		G_CURSOR++;
+		break;
+	case 'l':
+	case 'L':
+		suffix_flag |= WITH_LONG_SUFFIX;
+		G_CURSOR++;
+		break;
+	default:
+		return suffix_flag;
 	}
 
-	if (!is_scan_end(*G_CURSOR)) {
-		if (*G_CURSOR == 'u' || *G_CURSOR == 'U') {
-			if (suffix_flag & WITH_UNSIGNED_SUFFIX) {
-				error_message("invalid suffix in integer");
-			}
-			suffix_flag |= WITH_UNSIGNED_SUFFIX;
-		} else if (*G_CURSOR == 'l' || *G_CURSOR == 'L') {
-			if (suffix_flag & WITH_LONG_SUFFIX) {
-				error_message("invalid suffix in integer");
-			}
-			suffix_flag |= WITH_LONG_SUFFIX;
+	switch (*G_CURSOR) {
+	case 'u':
+	case 'U':
+		if (suffix_flag & WITH_UNSIGNED_SUFFIX) {
+			error_message("invalid suffix in integer");
 		}
+		suffix_flag |= WITH_UNSIGNED_SUFFIX;
 		G_CURSOR++;
+		break;
+	case 'l':
+	case 'L':
+		if (suffix_flag & WITH_LONG_SUFFIX) {
+			error_message("invalid suffix in integer");
+		}
+		suffix_flag |= WITH_LONG_SUFFIX;
+		G_CURSOR++;
+		break;
+	default:
+		return suffix_flag;
 	}
+
 	return suffix_flag;
 }
 
@@ -446,7 +461,7 @@ void scan_integer()
 	suffix_flag = 0;
 	suffix_flag = scan_integer_suffix();
 
-	integer_value = strtol(base_ptr, NULL, base);
+ 	integer_value = strtol(base_ptr, NULL, base);
 	if (errno == ERANGE) {
 		warn_message("overflow in implicit constant conversion");
 	}
@@ -560,7 +575,7 @@ static unsigned char trans_simple_escape_sequence_to_ascii(unsigned char charact
 	} else if (character == 'v') {
 		ret_char = '\v';
 	} else {
-		error_message("unknow escape sequence: %c");
+		error_message("unknown escape sequence: %c");
 	}
 	return ret_char;
 }
