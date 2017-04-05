@@ -21,7 +21,7 @@ void test_is_dec_num(void)
 }
 
 /*test scan identifier*/
-char *trim_str_end(char* ident)
+static char *trim_str_end(char* ident)
 {
 	int old_len;
 	char *new_str;
@@ -34,7 +34,7 @@ char *trim_str_end(char* ident)
 	return new_str;
 }
 
-void test_identifier(char *ident)
+static void test_identifier(char *ident)
 {
 	char *new_str;
 
@@ -47,7 +47,7 @@ void test_identifier(char *ident)
 	bcc_free(new_str);
 }
 
-void test_keywords(char *ident, int tk_kind)
+static void test_keywords(char *ident, int tk_kind)
 {
 	G_CURSOR = ident;
 	scan_identifier();
@@ -96,7 +96,7 @@ void test_scan_identifier(void)
 }
 
 /*test scan number*/
-void test_scan_floating(char *f_str, int tk_kind)
+static void test_scan_floating(char *f_str, int tk_kind)
 {
 	G_CURSOR = f_str;
 	scan_number();
@@ -105,7 +105,7 @@ void test_scan_floating(char *f_str, int tk_kind)
 	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 }
 
-void test_scan_integer(char *i_str, int tk_kind, int base)
+static void test_scan_integer(char *i_str, int tk_kind, int base)
 {
 	G_CURSOR = i_str;
 	scan_number();
