@@ -156,9 +156,9 @@ void scan_identifier()
 #define UNSIGNED_INT_MAX			4294967295
 #define UNSIGNED_INT_MIN			0
 
-#define SIGNED_LONG_MAX				2147483647
-#define SIGNED_LONG_MIN				-2147483648
-#define UNSIGNED_LONG_MAX			4294967295
+#define SIGNED_LONG_MAX				9223372036854775807
+#define SIGNED_LONG_MIN				-9223372036854775807
+#define UNSIGNED_LONG_MAX			18446744073709551615
 #define UNSIGNED_LONG_MIN			0
 
 
@@ -313,16 +313,6 @@ void scan_floating()
 	g_current_token.token_value.double_num = floating_value;
 }
 
-/*
-The type of an integer constant is the first of the corresponding
-list in which its value can be represented.  Unsuffixed decimal: int,
-long int, unsigned long int; unsuffixed octal or hexadecimal: int,
-unsigned int, long int, unsigned long int; suffixed by the letter u
-or U: unsigned int, unsigned long int; suffixed by the letter l or
-L: long int, unsigned long int; suffixed by both the letters u or U
-and l or L: unsigned long int .s
-*/
-
 #define WITH_UNSIGNED_SUFFIX	0x0001
 #define WITH_LONG_SUFFIX		0x0002
 
@@ -383,6 +373,14 @@ void scan_hex_number()
 	}
 }
 
+/*
+The type of an integer constant is the first of the corresponding list in which its value can be represented.  
+Unsuffixed decimal: int, long int, unsigned long int; 
+unsuffixed octal or hexadecimal: int, unsigned int, long int, unsigned long int; 
+suffixed by the letter u or U: unsigned int, unsigned long int; 
+suffixed by the letter l or L: long int, unsigned long int; 
+suffixed by both the letters u or U and l or L: unsigned long int
+*/
 int get_integer_tk_kind(int suffix_flag,int base, long int integer_value)
 {
 	int tk_kind;
@@ -408,14 +406,14 @@ int get_integer_tk_kind(int suffix_flag,int base, long int integer_value)
 		}
 	} else if (suffix_flag & WITH_UNSIGNED_SUFFIX 
 		&& !(suffix_flag & WITH_LONG_SUFFIX)) {
-			if (integer_value < UNSIGNED_INT_MAX) {
+			if (integer_value <= UNSIGNED_INT_MAX) {
 				tk_kind = TK_UNSIGNED_INTCONST;
 			} else {
 				tk_kind = TK_UNSIGNED_LONGCONST;
 			}
 	} else if (!(suffix_flag & WITH_UNSIGNED_SUFFIX)
 		&& suffix_flag & WITH_LONG_SUFFIX) {
-			if (integer_value < SIGNED_LONG_MAX) {
+			if (integer_value <= SIGNED_LONG_MAX) {
 				tk_kind = TK_LONGCONST;
 			} else {
 				tk_kind = TK_UNSIGNED_LONGCONST;
