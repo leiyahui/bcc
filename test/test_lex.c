@@ -165,9 +165,50 @@ void test_scan_number(void)
 }
 
 /*test scan character*/
+
+void test_character(char *str)
+{
+	G_CURSOR = str;
+	scan_character();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_INTCONST);
+	CU_ASSERT_EQUAL(g_current_token.token_value.int_num, *(str +  1));
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+void test_escape_character(char *str)
+{
+	G_CURSOR = str;
+	scan_character();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_INTCONST);
+	CU_ASSERT_EQUAL(g_current_token.token_value.int_num, trans_simple_escape_sequence_to_ascii(*(str + 2)));
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+void test_complicated_character(char *str, int num)
+{
+	G_CURSOR = str;
+	scan_character();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_INTCONST);
+	CU_ASSERT_EQUAL(g_current_token.token_value.int_num, num);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
 void test_scan_character()
 {
+	test_character("'a' ");
+	test_escape_character("'\\a' ");
+	test_escape_character("'\\\\' ");
+	test_escape_character("'\\\'' ");
+	test_escape_character("'\\n' ");
 
+	test_complicated_character("'ab' ", 24930);
+	test_complicated_character("'abcd' ", 1633837924);
+	test_complicated_character("'\\123' ", 83);
+	test_complicated_character("'\\123\\123' ", 21331);
+	test_complicated_character("'\\123\\123a' ", 5460833);
+	test_complicated_character("'\\255' ", -83);
+	test_complicated_character("'\\xab' ", -85);
+	test_complicated_character("'\\xabc' ", -68);
 }
 
 CU_TestInfo lex_test_arrray[] = {

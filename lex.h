@@ -102,7 +102,7 @@ void scan_bad_letter();
 
 
 void get_next_token(input_file_t *input_file);
-
+char trans_simple_escape_sequence_to_ascii(unsigned char character);
 /*keywords and identify hash*/
 
 int get_string_key(char *str, int len);

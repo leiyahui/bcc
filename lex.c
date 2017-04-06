@@ -486,6 +486,17 @@ void scan_number()
 
 /*For example, 'ab' for a target with an 8-bit char would be interpreted as ¡®(int) ((unsigned char) 'a' * 256 + (unsigned char) 'b')¡¯, and '\234a' as ¡®(int) ((unsigned char) '\234' * 256 + (unsigned char) 'a')¡¯.*/
 
+int turn_ascii_to_num(int ascii_value)
+{
+	if (ascii_value >= '0' && ascii_value <= '9') {
+		return ascii_value - 48;	
+	} else if (ascii_value >= 'A' && ascii_value <= 'F') {
+		return ascii_value - 55;
+	} else {
+		return ascii_value - 87;
+	}
+}
+
 static unsigned char scan_character_hex()			//most two Bit hex
 {
 	unsigned char hex_value;
@@ -493,12 +504,12 @@ static unsigned char scan_character_hex()			//most two Bit hex
 	if (!is_hex_number(*G_CURSOR)) {
 		error_message("\\x used hex without hex digits");
 	}
-	hex_value = *G_CURSOR;
+	hex_value = turn_ascii_to_num(*G_CURSOR);
 
 	G_CURSOR++;
 	if (is_hex_number(*G_CURSOR)) {
 		hex_value <<= 4;
-		hex_value += *G_CURSOR;
+		hex_value += turn_ascii_to_num(*G_CURSOR);
 		G_CURSOR++;
 	}
 
@@ -509,18 +520,18 @@ static unsigned char scan_character_oct()		//most three Bit oct
 {
 	unsigned char oct_value;
 
-	oct_value = *G_CURSOR;
+	oct_value = turn_ascii_to_num(*G_CURSOR);
 
 	G_CURSOR++;
 	if (is_octal_number(*G_CURSOR)) {
 		oct_value <<= 3;
-		oct_value += *G_CURSOR;
+		oct_value += turn_ascii_to_num(*G_CURSOR);
 	}
 
 	G_CURSOR++;
 	if (is_octal_number(*G_CURSOR)) {
 		oct_value <<= 3;
-		oct_value += *G_CURSOR;
+		oct_value += turn_ascii_to_num(*G_CURSOR);
 		G_CURSOR++;
 	}
 
@@ -551,7 +562,7 @@ static BOOL is_simple_escape_sequence(unsigned char character) {
 	return FALSE;
 }
 
-static unsigned char trans_simple_escape_sequence_to_ascii(unsigned char character)
+char trans_simple_escape_sequence_to_ascii(unsigned char character)
 {
 	unsigned char ret_char;
 
@@ -580,7 +591,7 @@ static unsigned char trans_simple_escape_sequence_to_ascii(unsigned char charact
 	return ret_char;
 }
 
-static unsigned char scan_one_character(BOOL scan_in_str)
+static char scan_one_character(BOOL scan_in_str)
 {
 	unsigned char ret_char;
 
@@ -619,7 +630,7 @@ static unsigned char scan_one_character(BOOL scan_in_str)
 
 void scan_character()
 {
-	unsigned char temp_character;
+	char temp_character;
 	int character_value;
 
 	G_CURSOR++;
@@ -632,6 +643,8 @@ void scan_character()
 		character_value <<= 8;
 		character_value += temp_character;
 	}
+
+	G_CURSOR++;
 	g_current_token.tk_kind = TK_INTCONST;
 	g_current_token.token_value.int_num = character_value;
 	g_current_token.line = G_LINE;
