@@ -507,7 +507,7 @@ static unsigned char scan_character_hex()			//most two Bit hex
 	hex_value = turn_ascii_to_num(*G_CURSOR);
 
 	G_CURSOR++;
-	if (is_hex_number(*G_CURSOR)) {
+	while (is_hex_number(*G_CURSOR)) {
 		hex_value <<= 4;
 		hex_value += turn_ascii_to_num(*G_CURSOR);
 		G_CURSOR++;
@@ -593,7 +593,7 @@ char trans_simple_escape_sequence_to_ascii(unsigned char character)
 
 static char scan_one_character(BOOL scan_in_str)
 {
-	unsigned char ret_char;
+	char ret_char;
 
 	if (*G_CURSOR == '\\') {			//escape sequence
 		G_CURSOR++;

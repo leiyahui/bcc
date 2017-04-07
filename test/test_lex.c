@@ -203,12 +203,14 @@ void test_scan_character()
 
 	test_complicated_character("'ab' ", 24930);
 	test_complicated_character("'abcd' ", 1633837924);
+	test_complicated_character("'abcde' ", 1650680933);
 	test_complicated_character("'\\123' ", 83);
 	test_complicated_character("'\\123\\123' ", 21331);
 	test_complicated_character("'\\123\\123a' ", 5460833);
 	test_complicated_character("'\\255' ", -83);
 	test_complicated_character("'\\xab' ", -85);
 	test_complicated_character("'\\xabc' ", -68);
+	//test_complicated_character("'\\xabg' ", 43879);
 }
 
 CU_TestInfo lex_test_arrray[] = {
