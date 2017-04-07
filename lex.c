@@ -648,10 +648,13 @@ char scan_one_str_character()
 	if (*G_CURSOR == '\\') {
 		G_CURSOR++;
 		ret_char = trans_simple_escape_sequence_to_ascii(*G_CURSOR);  //simple escape sequence
-	} else {
+		G_CURSOR++;
+	} else if (*G_CURSOR >= '!' && *G_CURSOR <= '~') {
 		ret_char = *G_CURSOR;
+		G_CURSOR++;
+	} else {
+		error_message("invalid character constant");
 	}
-	G_CURSOR++;
 	return ret_char;
 }
 
@@ -667,11 +670,7 @@ void scan_string_literal()
 	G_CURSOR++;
 
 	str_len = 0;
-	while (1) {
-		if (*G_CURSOR == '"') {
-			G_CURSOR++;
-			break;
-		}
+	while (*G_CURSOR != '"') {
 		temp_character = scan_one_str_character();
 		str_len++;
 		if (str_len >= curr_buffer_size) {
@@ -680,6 +679,7 @@ void scan_string_literal()
 		}
 		str_ptr[str_len - 1] = temp_character;
 	}
+	G_CURSOR++;
 	str_ptr[str_len] = '\0';
 
 	ptr_in_hash = lookup_identify_hash(str_ptr, str_len);

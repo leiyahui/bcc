@@ -263,8 +263,6 @@ void test_scan_string_literal()
 	test_str_literal("\"\\'\" ");
 }
 
-
-
 CU_TestInfo lex_test_arrray[] = {
 	{"is_dec_num:", test_is_dec_num},
 	{"scan_identifier", test_scan_identifier},
