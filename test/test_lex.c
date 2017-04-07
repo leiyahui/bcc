@@ -29,7 +29,7 @@ static char *trim_str_end(char* ident)
 	old_len = strlen(ident);
 	new_str = (char*)bcc_malloc(old_len);
 	bcc_strncpy(new_str, ident, old_len - 1);
-	new_str[old_len] = '\0';
+	new_str[old_len - 1] = '\0';
 	
 	return new_str;
 }
@@ -200,6 +200,7 @@ void test_scan_character()
 	test_escape_character("'\\\\' ");
 	test_escape_character("'\\\'' ");
 	test_escape_character("'\\n' ");
+	test_escape_character("'\\'' ");
 
 	test_complicated_character("'ab' ", 24930);
 	test_complicated_character("'abcd' ", 1633837924);
@@ -210,14 +211,66 @@ void test_scan_character()
 	test_complicated_character("'\\255' ", -83);
 	test_complicated_character("'\\xab' ", -85);
 	test_complicated_character("'\\xabc' ", -68);
-	//test_complicated_character("'\\xabg' ", 43879);
+	//test_complicated_character("'\\xabg' ", 43879);			//the action is different from gcc
 }
+
+
+/*test scan string*/
+char *turn_str_to_ident(char *str)
+{
+	int old_len, new_len, i;
+	char *ident;
+	char tmp_value;
+
+	old_len = bcc_strlen(str);
+	ident = (char*)bcc_malloc(old_len - 2);
+	new_len = 0;
+	for (i = 0; i < old_len - 3; i++) {
+		tmp_value = *(str + i + 1);
+		if (tmp_value == '\\') {
+			tmp_value = trans_simple_escape_sequence_to_ascii(*(str + i + 2));
+			i++;
+		}
+		ident[new_len] = tmp_value;
+		new_len++;
+	}
+	ident[new_len] = '\0';
+	
+	return ident;
+}
+
+void test_str_literal(char *str)
+{
+	char *ident;
+
+	G_CURSOR = str;
+	scan_string_literal();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_STRING);
+	ident = turn_str_to_ident(str);
+	CU_ASSERT_STRING_EQUAL(g_current_token.token_value.ptr, ident);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+	bcc_free(ident);
+}
+
+void test_scan_string_literal()
+{
+	test_str_literal("\"\" ");
+	test_str_literal("\"a\" ");
+	test_str_literal("\"abcdfe\" ");
+	test_str_literal("\"\\n\" ");
+	test_str_literal("\"\\t\" ");
+	test_str_literal("\"\\\"\" ");
+	test_str_literal("\"\\'\" ");
+}
+
+
 
 CU_TestInfo lex_test_arrray[] = {
 	{"is_dec_num:", test_is_dec_num},
 	{"scan_identifier", test_scan_identifier},
 	{"scan_number", test_scan_number},
 	{"scan_character", test_scan_character},
+	{"scan_string", test_scan_string_literal},
 	CU_TEST_INFO_NULL,
 };
 

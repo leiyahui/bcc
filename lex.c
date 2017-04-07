@@ -591,7 +591,7 @@ char trans_simple_escape_sequence_to_ascii(unsigned char character)
 	return ret_char;
 }
 
-static char scan_one_character(BOOL scan_in_str)
+static char scan_one_character()
 {
 	char ret_char;
 
@@ -608,22 +608,12 @@ static char scan_one_character(BOOL scan_in_str)
 		}
 	} else if (*G_CURSOR >= '!' && *G_CURSOR <= '~') {
 		ret_char = *G_CURSOR;
-		if (scan_in_str == TRUE) {
-			if (ret_char == '\"') {
-				error_message("empty string constant");
-			} 
-		} else {
-			if (ret_char == '\'') {
-				error_message("empty character constant");
-			}
+		if (ret_char == '\'') {
+			error_message("empty character constant");
 		}
 		G_CURSOR++;
 	} else {
-		if (scan_in_str == TRUE) {
-			error_message("invalid string constant");
-		} else {
-			error_message("invalid character constant");
-		}
+		error_message("invalid character constant");
 	}
 	return ret_char;
 }
@@ -635,11 +625,11 @@ void scan_character()
 
 	G_CURSOR++;
 
-	temp_character = scan_one_character(FALSE);
+	temp_character = scan_one_character();
 	character_value = temp_character;
 
 	while (*G_CURSOR != '\'') {
-		temp_character = scan_one_character(FALSE);
+		temp_character = scan_one_character();
 		character_value <<= 8;
 		character_value += temp_character;
 	}
@@ -650,21 +640,39 @@ void scan_character()
 	g_current_token.line = G_LINE;
 }
 
+
+char scan_one_str_character()
+{
+	char ret_char;
+
+	if (*G_CURSOR == '\\') {
+		G_CURSOR++;
+		ret_char = trans_simple_escape_sequence_to_ascii(*G_CURSOR);  //simple escape sequence
+	} else {
+		ret_char = *G_CURSOR;
+	}
+	G_CURSOR++;
+	return ret_char;
+}
+
+#define DEFAULT_STR_BUFFER_SIZE 10
 void scan_string_literal()
 {
 	unsigned char temp_character;
 	char* str_ptr, *ptr_in_hash;
 	int curr_buffer_size, str_len;
 
-	curr_buffer_size = 10;
+	curr_buffer_size = DEFAULT_STR_BUFFER_SIZE;
 	str_ptr = (char*)bcc_malloc(curr_buffer_size);
 	G_CURSOR++;
-	temp_character = scan_one_character(TRUE);
-	str_len = 1;
-	str_ptr[str_len - 1] = temp_character;
 
-	while (*G_CURSOR != '\"') {
-		temp_character = scan_one_character(TRUE);
+	str_len = 0;
+	while (1) {
+		if (*G_CURSOR == '"') {
+			G_CURSOR++;
+			break;
+		}
+		temp_character = scan_one_str_character();
 		str_len++;
 		if (str_len >= curr_buffer_size) {
 			curr_buffer_size *= 2;
@@ -678,7 +686,8 @@ void scan_string_literal()
 	if (!ptr_in_hash) {
 		ptr_in_hash = insert_identify_hash(str_ptr, str_len);
 	}
-
+	bcc_free(str_ptr);
+	
 	g_current_token.line = G_LINE;
 	g_current_token.tk_kind = TK_STRING;
 	g_current_token.token_value.ptr = ptr_in_hash;
