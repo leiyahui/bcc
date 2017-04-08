@@ -1019,17 +1019,18 @@ void scan_exclamation()
 
 void scan_file_end()
 {
-	
+	g_current_token.tk_kind = TK_END;
+	g_current_token.line = G_LINE;
 }
 
 void scan_bad_letter()
 {
-
+	error_message("illegal character");
 }
 
 void get_next_token(input_file_t *input_file)
 {
-
+	g_scanner[*G_CURSOR]();
 }
 
 /*keywords hash*/

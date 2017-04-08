@@ -37,6 +37,8 @@ enum TOKEN {
 	
 	/*condition operator*/
 	TK_EQUAL, TK_NEQUAL, TK_LESS_EQUAL, TK_GREAT_EQUAL, TK_LESS, TK_GREAT, 
+	/*end*/
+	TK_END,
 };
 
 typedef union _token_value_t {
