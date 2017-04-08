@@ -165,8 +165,7 @@ void test_scan_number(void)
 }
 
 /*test scan character*/
-
-void test_character(char *str)
+static void test_character(char *str)
 {
 	G_CURSOR = str;
 	scan_character();
@@ -175,7 +174,7 @@ void test_character(char *str)
 	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 }
 
-void test_escape_character(char *str)
+static void test_escape_character(char *str)
 {
 	G_CURSOR = str;
 	scan_character();
@@ -184,7 +183,7 @@ void test_escape_character(char *str)
 	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
 }
 
-void test_complicated_character(char *str, int num)
+static void test_complicated_character(char *str, int num)
 {
 	G_CURSOR = str;
 	scan_character();
@@ -214,9 +213,8 @@ void test_scan_character()
 	//test_complicated_character("'\\xabg' ", 43879);			//the action is different from gcc
 }
 
-
 /*test scan string*/
-char *turn_str_to_ident(char *str)
+static char *turn_str_to_ident(char *str)
 {
 	int old_len, new_len, i;
 	char *ident;
@@ -239,7 +237,7 @@ char *turn_str_to_ident(char *str)
 	return ident;
 }
 
-void test_str_literal(char *str)
+static void test_str_literal(char *str)
 {
 	char *ident;
 
@@ -263,12 +261,337 @@ void test_scan_string_literal()
 	test_str_literal("\"\\'\" ");
 }
 
+/*test scan special character*/
+
+static void test_scan_comma()
+{
+	G_CURSOR = ", ";
+	scan_comma();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_COMMA);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_question_mark()
+{
+	G_CURSOR = "?  ";
+	scan_question_mark();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_QUESTION);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_colon()
+{
+	G_CURSOR = ": ";
+	scan_colon();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_COLON);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_comp()
+{
+	G_CURSOR = "~ ";
+	scan_comp();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITREVERT);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_paren()
+{
+	G_CURSOR = "( ";
+	scan_lparen();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LPAREN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = ") ";
+	scan_rparen();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_RPAREN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_brace()
+{
+	G_CURSOR = "{ ";
+	scan_lbrace();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LBRACE);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "} ";
+	scan_rbrace();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_RBRACE);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_bracket()
+{
+	G_CURSOR = "[ ";
+	scan_lbracket();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LBRACKET);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "] ";
+	scan_rbracket();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_RBRACKET);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+static void test_scan_semicolon()
+{
+	G_CURSOR = "; ";
+	scan_semicolon();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_SEMICOLON);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+void test_scan_special_character()
+{
+	test_scan_comma();
+	test_scan_question_mark();
+	test_scan_colon();
+	test_scan_comp();
+	test_scan_paren();
+	test_scan_brace();
+	test_scan_bracket();
+	test_scan_semicolon();
+}
+
+/*test scan equal sign*/
+void test_scan_euqal_sign()
+{
+	G_CURSOR = "= ";
+	scan_equal_sign();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "== ";
+	scan_equal_sign();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_EQUAL);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan and sign*/
+
+void test_scan_and()
+{
+	G_CURSOR = "& ";
+	scan_and();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITAND);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "&& ";
+	scan_and();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_AND);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "&= ";
+	scan_and();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITAND_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan or sign*/
+void test_scan_or()
+{
+	G_CURSOR = "| ";
+	scan_or();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITOR);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "|| ";
+	scan_or();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_OR);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "|= ";
+	scan_or();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITOR_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan less sign*/
+void test_scan_less()
+{
+	G_CURSOR = "< ";
+	scan_less();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LESS);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "<< ";
+	scan_less();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LSHIFT);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "<<= ";
+	scan_less();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LSHIFT_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "<= ";
+	scan_less();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_LESS_EQUAL);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan great sign*/
+void test_scan_great()
+{
+	G_CURSOR = "> ";
+	scan_great();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_GREAT);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = ">> ";
+	scan_great();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_RSHIFT);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = ">>= ";
+	scan_great();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_RSHIFT_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = ">= ";
+	scan_great();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_GREAT_EQUAL);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan add sign*/
+void test_scan_add()
+{
+	G_CURSOR = "+ ";
+	scan_add();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_ADD);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "++ ";
+	scan_add();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_INC);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "+= ";
+	scan_add();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_ADD_ASSING);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan minus sign*/
+void test_scan_minus()
+{
+	G_CURSOR = "- ";
+	scan_minus();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_SUB);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "-= ";
+	scan_minus();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_SUB_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "-- ";
+	scan_minus();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_DEC);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "-> ";
+	scan_minus();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_POINTER);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan multi sign*/
+void test_scan_multi()
+{
+	G_CURSOR = "* ";
+	scan_multi();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_MULTIPLY);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "*= ";
+	scan_multi();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_MULTI_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan divide muliti*/
+void test_scan_divide()
+{
+	G_CURSOR = "/ ";
+	scan_divide();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_DIVIDE);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "/= ";
+	scan_divide();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_DIVIDE_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan percent sign*/
+void test_scan_percent()
+{
+	G_CURSOR = "% ";
+	scan_percent();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_MOD);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "%= ";
+	scan_percent();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_MOD_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan caret sign*/
+void test_scan_caret()
+{
+	G_CURSOR = "^ ";
+	scan_caret();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITXOR);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = "^= ";
+	scan_caret();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_BITXOR_ASSIGN);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
+/*test scan dot sign*/
+void test_scan_dot()
+{
+	G_CURSOR = ". ";
+	scan_dot();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_DOT);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+
+	G_CURSOR = ".. ";
+	scan_dot();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_DOT);
+	CU_ASSERT_EQUAL(*G_CURSOR, '.');
+
+	G_CURSOR = "... ";
+	scan_dot();
+	CU_ASSERT_EQUAL(g_current_token.tk_kind, TK_ELLIPSE);
+	CU_ASSERT_EQUAL(*G_CURSOR, ' ');
+}
+
 CU_TestInfo lex_test_arrray[] = {
 	{"is_dec_num:", test_is_dec_num},
 	{"scan_identifier", test_scan_identifier},
 	{"scan_number", test_scan_number},
 	{"scan_character", test_scan_character},
 	{"scan_string", test_scan_string_literal},
+	{"scan_special_character", test_scan_special_character},
+	{"scan_equal_sign", test_scan_euqal_sign},
+	{"scan_and", test_scan_and},
+	{"scan_or", test_scan_or},
+	{"scan_less", test_scan_less},
+	{"scan_great", test_scan_great},
+	{"scan_add", test_scan_add},
+	{"scan_minus", test_scan_minus},
+	{"scan_multi", test_scan_multi},
+	{"scan_divide", test_scan_divide},
+	{"scan_percent", test_scan_percent},
+	{"scan_caret", test_scan_caret},
+	{"scan_dot", test_scan_dot},
 	CU_TEST_INFO_NULL,
 };
 

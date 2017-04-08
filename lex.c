@@ -788,8 +788,8 @@ void scan_less()
 		G_CURSOR++;
 		if (*G_CURSOR == '=') {
 			tk_kind = TK_LSHIFT_ASSIGN;
+			G_CURSOR++;
 		}
-		G_CURSOR++;
 	} else if (*G_CURSOR == '=') {
 		tk_kind = TK_LESS_EQUAL;
 		G_CURSOR++;
@@ -931,11 +931,8 @@ void scan_caret()
 
 void scan_comp()
 {
-	int tk_kind;
-
-	tk_kind = TK_BITREVERT;
 	G_CURSOR++;
-	g_current_token.tk_kind = tk_kind;
+	g_current_token.tk_kind = TK_BITREVERT;
 	g_current_token.line = G_LINE;
 }
 
@@ -943,7 +940,7 @@ void scan_dot()
 {
 	int tk_kind;
 
-	if (bcc_strnequal(G_CURSOR, "...", 3)) {
+	if (!bcc_strnequal(G_CURSOR, "...", 3)) {
 		tk_kind = TK_DOT;
 		G_CURSOR += 1;
 	} else {
