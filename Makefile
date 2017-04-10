@@ -1,4 +1,4 @@
-objects =  test_main.o common.o lex.o load_file.o memory.o output_message.o
+objects =  test_main.o common.o lex.o load_file.o memory.o output_message.o syntax.o
 
 test_main : $(objects)
 	cc -o test_main $(objects)
@@ -9,6 +9,7 @@ common.o : common.h
 load_file.o : load_file.h
 memory.o : memory.h
 output_message.o : output_message.h
+syntax.o : syntax.h
 
 
 clean:
