@@ -103,7 +103,7 @@ void scan_file_end();
 void scan_bad_letter();
 
 
-void get_next_token(input_file_t *input_file);
+void get_next_token();
 char trans_simple_escape_sequence_to_ascii(unsigned char character);
 /*keywords and identify hash*/
 
@@ -124,26 +124,26 @@ void insert_keyword_hash(char *keyword, int token);
 int lookup_keywords(char *str, int len);
 
 /*identify hash*/
-typedef struct _identify_ele_t {
+typedef struct _hash_ele_t {
 	int key;
-	char *p_ident;
-	struct _identify_ele_t *next;
-}identify_ele_t;
+	char *str;
+	struct _hash_ele_t *next;
+}hash_ele_t;
 
-typedef struct _identify_hashtable_t {
+typedef struct _hashtable_t {
 	int size;
 	int ele_num;
-	identify_ele_t *iden_table;
-}identify_hashtable_t;
+	hash_ele_t *table;
+}hashtable_t;
 
 
-#define DEFAULT_IDENTIFY_HASHTABLE_NUM 200
+#define DEFAULT_HASHTABLE_NUM 200
 
-extern identify_hashtable_t g_identify_hashtable;
-int hash_identify(int key_value);
-void init_identify_hashtable();
-char* insert_identify_hash(char *identify, int len);
-char* lookup_identify_hash(char *identify, int len);
+extern hashtable_t g_identify_hashtable;
+int hash_key_value(int key_value, int table_size);
+void init_hashtable(hashtable_t *hashtable);
+char* insert_hash(hashtable_t *hashtable, char *str, int len);
+char* lookup_hash(hashtable_t *hashtable, char *str, int len);
 
 
 

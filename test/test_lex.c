@@ -3,7 +3,7 @@
 int lex_suite_init()
 {
 	init_keywords_hash();
-	init_identify_hashtable();
+	init_hashtable(&g_identify_hashtable);
 	return 0;
 }
 

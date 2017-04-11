@@ -2,7 +2,7 @@
 
 lex_scan_func g_scanner[255];
 keyword_ele_t g_keywords_hashtable[100];
-identify_hashtable_t g_identify_hashtable;		//this hash table include identifier and string constant
+hashtable_t g_identify_hashtable;		//this hash table include identifier and string constant
 token_t g_current_token;
 
 BOOL is_dec_num(int ascii_value)
@@ -126,9 +126,9 @@ void scan_identifier()
 	tk_kind = lookup_keywords(base_ptr, str_len);
 
 	if (!tk_kind) {				//not keywords
-		identify_ptr = lookup_identify_hash(base_ptr, str_len);
+		identify_ptr = lookup_hash(&g_identify_hashtable, base_ptr, str_len);
 		if (!identify_ptr) {
-			identify_ptr = insert_identify_hash(base_ptr, str_len);
+			identify_ptr = insert_hash(&g_identify_hashtable, base_ptr, str_len);
 		}
 		tk_kind = TK_IDENTIFIER;
 		g_current_token.token_value.ptr = identify_ptr; 
@@ -682,9 +682,9 @@ void scan_string_literal()
 	G_CURSOR++;
 	str_ptr[str_len] = '\0';
 
-	ptr_in_hash = lookup_identify_hash(str_ptr, str_len);
+	ptr_in_hash = lookup_hash(&g_identify_hashtable, str_ptr, str_len);
 	if (!ptr_in_hash) {
-		ptr_in_hash = insert_identify_hash(str_ptr, str_len);
+		ptr_in_hash = insert_hash(&g_identify_hashtable, str_ptr, str_len);
 	}
 	bcc_free(str_ptr);
 	
@@ -1028,7 +1028,7 @@ void scan_bad_letter()
 	error_message("illegal character");
 }
 
-void get_next_token(input_file_t *input_file)
+void get_next_token()
 {
 	g_scanner[*G_CURSOR]();
 }
@@ -1130,116 +1130,116 @@ void init_keywords_hash()
 
 
 /*identify hash*/
-int hash_identify(int key_value)
+int hash_key_value(int key_value, int table_size)
 {
-	return key_value % g_identify_hashtable.size;
+	return key_value % table_size;
 }
-void init_identify_hashtable()
+void init_hashtable(hashtable_t *hashtable)
 {
-	g_identify_hashtable.ele_num = 0;
-	g_identify_hashtable.size = DEFAULT_IDENTIFY_HASHTABLE_NUM;
-	g_identify_hashtable.iden_table = (identify_ele_t *) bcc_calloc(DEFAULT_IDENTIFY_HASHTABLE_NUM, sizeof(identify_ele_t));
+	hashtable->ele_num = 0;
+	hashtable->size = DEFAULT_HASHTABLE_NUM;
+	hashtable->table = (hash_ele_t *)bcc_calloc(DEFAULT_HASHTABLE_NUM, sizeof(hash_ele_t));
 }
 
-void insert_iden_key_hash(int key_value, char* p_ident)
+void insert_key_to_hash(hashtable_t *hashtable, char *key_value, char *str)
 {
 	int hash_value;
-	identify_ele_t *curr_ident_ele;
+	hash_ele_t *curr_ele;
 
-	hash_value = hash_identify(key_value);
+	hash_value = hash_key_value(key_value, hashtable->size);
 
-	g_identify_hashtable.ele_num++;
-	curr_ident_ele = &g_identify_hashtable.iden_table[hash_value];
-	if (curr_ident_ele->key != NULL) {
-		while (curr_ident_ele->next != NULL) {
-			curr_ident_ele = curr_ident_ele->next;
+	hashtable->ele_num++;
+	curr_ele = &hashtable->table[hash_value];
+	if (curr_ele->key != NULL) {
+		while (curr_ele->next != NULL) {
+			curr_ele = curr_ele->next;
 		}
-		curr_ident_ele->next = (identify_ele_t*)bcc_malloc(sizeof(identify_ele_t));
-		curr_ident_ele = curr_ident_ele->next;
+		curr_ele->next = (hash_ele_t*)bcc_malloc(sizeof(hash_ele_t));
+		curr_ele = curr_ele->next;
 	}
-	curr_ident_ele->key = key_value;
-	curr_ident_ele->p_ident = p_ident;
-	curr_ident_ele->next = NULL;
+	curr_ele->key = key_value;
+	curr_ele->str = str;
+	curr_ele->next = NULL;
 }
 
-void resize_identify_hashtable()
+void resize_hashtable(hashtable_t *hashtable)
 {
 	int i;
 	int old_table_size, new_table_size;
-	identify_ele_t *curr_ident_ele, *prev_ident_ele;
-	identify_ele_t *old_iden_table;
+	hash_ele_t *curr_ele, *prev_ele;
+	hash_ele_t *old_table;
 
-	old_table_size = g_identify_hashtable.size;
-	old_iden_table = g_identify_hashtable.iden_table;
+	old_table_size = hashtable->size;
+	old_table = hashtable->table;
 
 	new_table_size = old_table_size * 2;
 
-	g_identify_hashtable.size = new_table_size;
-	g_identify_hashtable.iden_table = (identify_ele_t *)bcc_calloc(new_table_size, sizeof(identify_ele_t));
+	hashtable->size = new_table_size;
+	hashtable->table = (hash_ele_t *)bcc_calloc(new_table_size, sizeof(hash_ele_t));
 
 	for (i = 0; i <= old_table_size; i++) {
-		curr_ident_ele = &old_iden_table[i];
-		while (curr_ident_ele) {
-			insert_iden_key_hash(curr_ident_ele->key, curr_ident_ele->p_ident);
-			curr_ident_ele = curr_ident_ele->next;
+		curr_ele = &old_table[i];
+		while (curr_ele) {
+			insert_key_to_hash(hashtable, curr_ele->key, curr_ele->str);
+			curr_ele = curr_ele->next;
 		}
 		/*free node that additional malloc*/
-		curr_ident_ele = &old_iden_table[i];
-		curr_ident_ele = curr_ident_ele->next;
-		while (curr_ident_ele != NULL) {
-			prev_ident_ele = curr_ident_ele;
-			curr_ident_ele = curr_ident_ele->next;
-			bcc_free(prev_ident_ele);
+		curr_ele = &old_table[i];
+		curr_ele = curr_ele->next;
+		while (curr_ele != NULL) {
+			prev_ele = curr_ele;
+			curr_ele = curr_ele->next;
+			bcc_free(prev_ele);
 		}
 	}
-	bcc_free(old_iden_table);
+	bcc_free(old_table);
 }
 
-char* insert_identify_hash(char *identify, int len)
+char* insert_hash(hashtable_t *hashtable, char *str, int len)
 {
 	int key_value;
 	int hash_value;
-	identify_ele_t *curr_ident_ele;
+	hash_ele_t *curr_ele;
 
 
-	if (g_identify_hashtable.ele_num >= g_identify_hashtable.size) {		//load factor over 1
-		resize_identify_hashtable();
+	if (hashtable->ele_num >= hashtable->size) {		//load factor over 1
+		resize_hashtable(hashtable);
 	}
 
-	key_value = get_string_key(identify, len);
-	hash_value = hash_identify(key_value);
+	key_value = get_string_key(str, len);
+	hash_value = hash_key_value(key_value, hashtable->size);
 
-	g_identify_hashtable.ele_num++;
-	curr_ident_ele = &g_identify_hashtable.iden_table[hash_value];
-	if (curr_ident_ele->key != NULL) {
-		while (curr_ident_ele->next != NULL) {
-			curr_ident_ele = curr_ident_ele->next;
+	hashtable->ele_num++;
+	curr_ele = &hashtable->table[hash_value];
+	if (curr_ele->key != NULL) {
+		while (curr_ele->next != NULL) {
+			curr_ele = curr_ele->next;
 		}
-		curr_ident_ele->next = (identify_ele_t*)bcc_malloc(sizeof(identify_ele_t));
-		curr_ident_ele = curr_ident_ele->next;
+		curr_ele->next = (hash_ele_t*)bcc_malloc(sizeof(hash_ele_t));
+		curr_ele = curr_ele->next;
 	}
-	curr_ident_ele->key = key_value;
-	curr_ident_ele->p_ident = (char*)bcc_malloc(len + 1);
-	bcc_strncpy(curr_ident_ele->p_ident, identify, len);
-	curr_ident_ele->p_ident[len] = '\0';
-	curr_ident_ele->next = NULL;
+	curr_ele->key = key_value;
+	curr_ele->str = (char*)bcc_malloc(len + 1);
+	bcc_strncpy(curr_ele->str, str, len);
+	curr_ele->str[len] = '\0';
+	curr_ele->next = NULL;
 
-	return curr_ident_ele->p_ident;
+	return curr_ele->str;
 }
 
-char* lookup_identify_hash(char *identify, int len)
+char* lookup_hash(hashtable_t *hashtable, char *identify, int len)
 {
 	int key_value;
 	int hash_value;
-	identify_ele_t *curr_ident_ele;
+	hash_ele_t *curr_ident_ele;
 
 	key_value = get_string_key(identify, len);
-	hash_value = hash_identify(key_value);
+	hash_value = hash_key_value(key_value, hashtable->size);
 	
-	curr_ident_ele = &g_identify_hashtable.iden_table[hash_value];
+	curr_ident_ele = &hashtable->table[hash_value];
 	while (curr_ident_ele != NULL) {
 		if (curr_ident_ele->key == key_value) {
-			return curr_ident_ele->p_ident;
+			return curr_ident_ele->str;
 		}
 		curr_ident_ele = curr_ident_ele->next;
 	}
