@@ -254,7 +254,7 @@ ast_node_t *parse_decl_spec()
 	type_qual_t *type_qual;
 	BOOL invalid_decl_spec;
 
-	decl_spec = create_node(DECL_SPEC, sizeof(decl_spec_t));
+	decl_spec = (decl_spec_t *)bcc_malloc(sizeof(decl_spec_t));
 	store_cls = decl_spec->store_cls;
 	type_spec = decl_spec->type_spec;
 	type_qual = decl_spec->type_qual;
@@ -269,8 +269,8 @@ ast_node_t *parse_decl_spec()
 		case TK_AUTO:
 		case TK_REGISTER:
 			if (store_cls == NULL) {
-				store_cls = create_node(STORE_CLS, sizeof(store_cls_spec_t));
-				bcc_strncpy(&store_cls->token, &g_current_token, sizeof(token_t));
+				store_cls = (store_cls_spec_t*)bcc_malloc(sizeof(store_cls_spec_t));
+				bcc_strncpy(&store_cls->value->tk_val, &g_current_token, sizeof(token_t));
 			} else {
 				error_message("repeated storage class specifier");
 			}
