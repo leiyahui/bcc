@@ -9,15 +9,6 @@ hashtable_t g_external_symbol_table;
 #define G_TK_VALUE	g_current_token.token_value
 #define G_TK_LINE	g_current_token.line;
 
-
-ast_node_t *create_node(int size)
-{
-	ast_node_t *new_node;
-	new_node = (ast_node_t*)bcc_malloc(sizeof(ast_node_t));
-	new_node->kind = kind;
-	return new_node;
-}
-
 ast_node_t *parse_spec_qual_list()
 {
 	spec_qual_list_t *spec_list;
@@ -108,13 +99,9 @@ ast_node_t *parse_constant_expr()
 
 }
 
-ast_node_t *parse_struct_declarator()
+ast_node_t *parse_declarator()
 {
-	declarator_t *declarator;
 
-	declarator = create_node(DECLARATOR, sizeof(declarator_t));
-
-	return declarator;
 }
 
 ast_node_t *parse_struct_declarator_list()
@@ -137,7 +124,7 @@ ast_node_t *parse_struct_declarator_list()
 			const_expr = parse_constant_expr();
 		} else {
 			NEXT_TOKEN;
-			declarator = parse_struct_declarator();
+			declarator = parse_declarator();
 			if (G_TK_KIND == TK_COLON) {
 				NEXT_TOKEN;
 				const_expr = parse_constant_expr();

@@ -127,7 +127,7 @@ typedef struct _multi_expr_t {
 typedef struct _addit_expr_t {
 	ast_node_t *multi_expr;
 	ast_node_t *addit_expr;
-	ast_node_t *op
+	ast_node_t *op;
 }addit_expr_t;
 
 typedef struct _shift_expr_t {
@@ -145,7 +145,7 @@ typedef struct _rela_expr_t {
 typedef struct _equal_expr_t {
 	ast_node_t *rela_expr;
 	ast_node_t *euqal_expr;
-	ast_node_t *op
+	ast_node_t *op;
 }equal_expr_t;
 
 typedef struct _and_expr_t {
@@ -195,9 +195,9 @@ typedef struct _type_name_t {
 	ast_node_t *abstract_declarator;
 }type_name_t;
 
-#define WITHOUT_DECL		0
-#define WITH_ABSTRACT_DECL	1
-#define WITH_DIRECT_DECL	2
+#define WITHOUT_DECL							0
+#define WITH_ABSTRACT_DECLTOR				1
+#define WITH_DIRECT_ABS_DECLTOR			2
 
 typedef struct _direct_abstract_declarator_t {
 	int decl_kind;
@@ -214,9 +214,9 @@ typedef struct _abstract_declarator_t{
 }abstract_declarator_t;
 
 
-#define WITHOUT_DECL		0
-#define WITH_DECL			1
-#define WITH_ABSTRACT_DECL	2
+#define WITHOUT_DECL					0
+#define WITH_DECL						1
+#define WITH_ABSTRACT_DECL		2
 
 typedef struct _param_declaration_t {
 	int decl_kind;
@@ -366,5 +366,9 @@ typedef struct _func_def_t {
 	ast_node_t *decl_list_ptr;
 	ast_node_t *comp_state_ptr;
 };
+
+
+ast_node_t *parse_enum();
+ast_node_t *parse_struct_union();
 
 #endif
