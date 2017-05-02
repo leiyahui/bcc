@@ -365,7 +365,7 @@ typedef struct _func_def_t {
 	ast_node_t *decl_ptr;
 	ast_node_t *decl_list_ptr;
 	ast_node_t *comp_state_ptr;
-};
+}func_def_t;
 
 
 ast_node_t *parse_enum();
