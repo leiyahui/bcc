@@ -42,9 +42,16 @@ char* bcc_strcpy(char *dest, const char *src)
 
 char *bcc_strncpy(char *dest, const char *src, int len)
 {
-	if (dest == NULL || src == NULL) {
+	if (dest == NULL || src == NULL || len <= 0) {
 		return NULL;
 	}
 	return strncpy(dest, src, len);
 }
 
+char *bcc_memcpy(char *dest, const char *src, int len)
+{
+	if (dest == NULL || src == NULL || len <= 0) {
+		return NULL;
+	}
+	return memcpy(dest, src, len);
+}

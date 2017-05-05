@@ -13,6 +13,8 @@ char* bcc_strcpy(char *dest, const char *src);
 
 char* bcc_strncpy(char *dest, const char *src, int len);
 
+char *bcc_memcpy(char *dest, const char *str, int len);
+
 void bcc_free(void *ptr);
 
 #endif
