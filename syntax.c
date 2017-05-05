@@ -9,6 +9,443 @@ hashtable_t g_external_symbol_table;
 #define G_TK_VALUE	g_current_token.token_value
 #define G_TK_LINE	g_current_token.line;
 
+
+ast_node_t *create_token_node()
+{
+	ast_node_t *node;
+
+	node = (ast_node_t*)bcc_malloc(sizeof(ast_node_t));
+	bcc_memcpy(&node->tk_val, &g_current_token, sizeof(token_t));
+	return node;
+}
+
+/*parse expression*/
+
+ast_node_t *parse_primary_expr()
+{
+	primary_expr_t *pri_expr;
+
+	switch (G_TK_KIND) {
+	case TK_IDENTIFIER:
+	case TK_INTCONST:
+	case TK_UNSIGNED_INTCONST:
+	case TK_LONGCONST:
+	case TK_UNSIGNED_LONGCONST:
+	case TK_LLONGCONST:
+	case TK_UNSIGNED_LLONGCONST:
+	case TK_FLOATCONST:
+	case TK_DOUBLECONST:
+	case TK_LDOUBLECONST:
+	case TK_STRING:
+		pri_expr = (primary_expr_t *)bcc_malloc(sizeof(primary_expr_t));
+		pri_expr->kind = PRI_EXPR_TOKEN;
+		pri_expr->expr = create_token_node();
+		NEXT_TOKEN;
+		break;
+	case TK_LPAREN:
+		pri_expr = (primary_expr_t *)bcc_malloc(sizeof(primary_expr_t));
+		pri_expr->kind = PRI_EXPR_EXPR;
+		NEXT_TOKEN;
+		pri_expr->expr = parse_expr();
+		break;
+	default:
+		pri_expr = NULL;
+	}
+	return pri_expr;
+}
+
+#define CREATE_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
+													postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
+													postfix->next = tmp_postfix;
+
+ast_node_t *parse_postfix()
+{
+	postfix_t *postfix, *tmp_postfix;
+	int kind;
+
+	postfix = tmp_postfix = NULL;
+	while (1) {
+		switch (G_TK_KIND) {
+		case TK_LBRACKET:
+			NEXT_TOKEN;
+			kind = ARRAY_POSTFIX;
+
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
+			if (G_TK_KIND == TK_RBRACKET) {
+				postfix->expr = NULL;
+				break;
+			}
+			postfix->expr = parse_expr();
+			break;
+		case TK_LPAREN:
+			NEXT_TOKEN;
+			kind = FUNC_POSTFIX;
+			
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix)
+			if (G_TK_KIND == TK_RPAREN) {
+				postfix->expr = NULL;
+				break;
+			}
+			postfix->expr = parse_argu_expr_list();
+			break;
+		case TK_DOT:
+		case TK_POINTER:
+			kind = STRCTURE_POSTFIX;
+
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix)
+			postfix->op = create_token_node();
+			NEXT_TOKEN;
+			postfix->ident = create_token_node();
+			break;
+		case TK_INC:
+		case TK_DEC:
+			kind = INC_DEC_POSTFIX;
+
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix)
+			postfix->op = create_token_node;
+			break;
+		default:
+			return postfix;
+		}
+		postfix->kind = kind;
+		NEXT_TOKEN;
+	}
+}
+
+ast_node_t *parse_postfix_expr()
+{
+	postfix_expr_t *postfix_expr;
+	postfix_t *postfix;
+
+	postfix_expr = (postfix_expr_t*)bcc_malloc(sizeof(postfix_expr_t));
+	postfix_expr->primary_expr = parse_primary_expr();
+	if (postfix_expr->primary_expr == NULL) {
+		error_message("postfix_expr without primary expression");
+	}
+
+	postfix_expr->postfix = parse_postfix();
+
+	return postfix_expr;
+}
+
+ast_node_t *parse_unary_expr()
+{
+	unary_expr_t *unary_expr;
+	int expr_kind;
+
+	unary_expr = (unary_expr_t *)bcc_malloc(sizeof(unary_expr_t));
+	switch (G_TK_KIND) {
+	case TK_INC:
+	case TK_DEC:
+		expr_kind = UNARY_EXPR;
+		strncpy(&unary_expr->op->tk_val, &g_current_token, sizeof(token_t));
+		NEXT_TOKEN;
+		unary_expr->expr = parse_unary_expr();
+		break;
+	case TK_MOD:
+	case TK_MULTIPLY:
+	case TK_ADD:
+	case TK_SUB:
+	case TK_BITREVERT:
+	case TK_NOT:
+		expr_kind = CAST_EXPR;
+		strncpy(&unary_expr->op->tk_val, &g_current_token, sizeof(token_t));
+		NEXT_TOKEN;
+		unary_expr->expr = parse_cast_expr();
+		break;
+	case TK_SIZEOF:
+		strncpy(&unary_expr->op->tk_val, &g_current_token, sizeof(token_t));
+		NEXT_TOKEN;
+		if (G_TK_KIND == TK_LPAREN) {
+			expr_kind = TYPE_NAME;
+			unary_expr->expr = parse_type_name();
+			NEXT_TOKEN;
+		} else {
+			expr_kind = UNARY_EXPR;
+			unary_expr->expr = parse_unary_expr();
+		}
+		break;
+	default:
+		expr_kind = POSTFIX_EXPR;
+		unary_expr->expr = parse_postfix_expr();
+	}
+	unary_expr->expr_kind = expr_kind;
+	return unary_expr;
+}
+
+ast_node_t *parse_cast_expr()
+{
+	cast_expr_t *cast_expr;
+
+	cast_expr = (cast_expr_t *)bcc_malloc(sizeof(cast_expr_t));
+
+	if (G_TK_KIND == TK_LPAREN) {
+		cast_expr->is_unary_expr = FALSE;
+		cast_expr->type_name = parse_type_name();
+		NEXT_TOKEN;
+		cast_expr->expr = parse_cast_expr();
+	} else {
+		cast_expr->is_unary_expr = TRUE;
+		cast_expr->expr = parse_unary_expr();
+	}
+	return cast_expr;
+}
+
+ast_node_t *parse_mutli_expr()
+{
+	multi_expr_t *multi_expr;
+
+	multi_expr = (multi_expr_t *)bcc_malloc(sizeof(multi_expr_t));
+	
+	multi_expr->cast_expr = parse_cast_expr();
+	multi_expr->next = NULL;
+	if (G_TK_KIND == TK_MULTIPLY
+		|| G_TK_KIND == TK_DIVIDE
+		|| G_TK_KIND == TK_MOD) {
+		multi_expr->op = create_token_node();
+		NEXT_TOKEN;
+		multi_expr->next = parse_mutli_expr();
+	}
+	return multi_expr;
+}
+
+ast_node_t *parse_addit_expr()
+{
+	addit_expr_t *addit_expr;
+
+	addit_expr = (addit_expr_t *)bcc_malloc(sizeof(multi_expr_t));
+	addit_expr->multi_expr = parse_mutli_expr();
+	addit_expr->next = NULL;
+
+	if (G_TK_KIND == TK_ADD
+		|| G_TK_KIND == TK_SUB) {
+		addit_expr->op = create_token_node();
+		NEXT_TOKEN;
+		addit_expr->next = parse_addit_expr();
+	}
+	return addit_expr;
+}
+
+ast_node_t *parse_shift_expr()
+{
+	shift_expr_t *shift_expr;
+	
+	shift_expr = (shift_expr_t *)bcc_malloc(sizeof(shift_expr_t));
+	shift_expr->addit_expr = parse_addit_expr();
+	shift_expr->next = NULL;
+
+	if (G_TK_KIND == TK_LSHIFT
+		|| G_TK_KIND == TK_RSHIFT) {
+		shift_expr->op = create_token_node();
+		NEXT_TOKEN;
+		shift_expr->next = parse_shift_expr();
+	}
+	return shift_expr;
+}
+
+ast_node_t *parse_rela_expr()
+{
+	rela_expr_t *rela_expr;
+	
+	rela_expr = (rela_expr_t*)bcc_malloc(sizeof(rela_expr_t));
+	rela_expr->shift_expr = parse_shift_expr();
+	rela_expr->next = NULL;
+
+	if (G_TK_KIND == TK_LESS
+		|| G_TK_KIND == TK_LESS_EQUAL
+		|| G_TK_KIND == TK_GREAT
+		|| G_TK_KIND == TK_GREAT_EQUAL) {
+		rela_expr->op = create_token_node();
+		NEXT_TOKEN;
+		rela_expr->next = parse_rela_expr();
+	}
+
+}
+
+ast_node_t *parse_equal_expr()
+{
+	equal_expr_t *equal_expr;
+
+	equal_expr = (equal_expr_t *)bcc_malloc(sizeof(equal_expr_t));
+	equal_expr->rela_expr = parse_rela_expr();
+	equal_expr->next = NULL;
+
+	if (G_TK_KIND == TK_EQUAL
+		|| G_TK_KIND == TK_NEQUAL) {
+		equal_expr->op = create_token_node();
+		NEXT_TOKEN;
+		equal_expr->next = parse_equal_expr();
+	}
+	return equal_expr;
+}
+
+ast_node_t *parse_and_expr()
+{
+	and_expr_t *and_expr;
+
+	and_expr = (and_expr_t *)bcc_malloc(sizeof(equal_expr_t));
+	and_expr->equal_expr = parse_equal_expr();
+	and_expr->next = NULL;
+
+	if (G_TK_KIND == TK_BITAND) {
+		and_expr->op = create_token_node();
+		NEXT_TOKEN;
+		and_expr->next = parse_and_expr();
+	}
+	return and_expr;
+}
+
+ast_node_t *parse_excl_or_expr()
+{
+	exclusive_or_expr_t *excl_or_expr;
+
+	excl_or_expr = (exclusive_or_expr_t *)bcc_malloc(sizeof(exclusive_or_expr_t));
+	excl_or_expr->and_expr = parse_and_expr();
+	excl_or_expr->next = NULL;
+
+	if (G_TK_KIND == TK_BITXOR) {
+		excl_or_expr->op = create_token_node();
+		NEXT_TOKEN;
+		excl_or_expr->next = parse_excl_or_expr();
+	}
+	return excl_or_expr;
+}
+
+ast_node_t *parse_incl_or_expr()
+{
+	inclusive_or_expr_t *incl_or_expr;
+
+	incl_or_expr = (inclusive_or_expr_t *)bcc_malloc(sizeof(inclusive_or_expr_t));
+	incl_or_expr->exclu_or_expr = parse_excl_or_expr();
+	incl_or_expr->next = NULL;
+
+	if (G_TK_KIND == TK_BITOR) {
+		incl_or_expr->op = create_token_node();
+		NEXT_TOKEN;
+		incl_or_expr->next = parse_incl_or_expr();
+	}
+	return incl_or_expr;
+}
+
+ast_node_t *parse_logic_and_expr()
+{
+	logic_and_expr_t *logic_and_expr;
+
+	logic_and_expr = (logic_and_expr_t *)bcc_malloc(sizeof(logic_and_expr_t));
+	logic_and_expr->inclusive_or_expr = parse_incl_or_expr();
+	logic_and_expr->logic_and_expr = NULL;
+
+	if (G_TK_KIND == TK_AND) {
+		logic_and_expr->op = create_token_node();
+		NEXT_TOKEN;
+		logic_and_expr->logic_and_expr = parse_logic_and_expr();
+	}
+	return logic_and_expr;
+}
+
+ast_node_t *parse_logic_or_expr()
+{
+	logic_or_expr_t *logic_or_expr;
+
+	logic_or_expr = (logic_or_expr_t *)bcc_malloc(sizeof(logic_or_expr_t));
+	logic_or_expr->logic_and_expr = parse_logic_and_expr();
+	logic_or_expr->logic_or_expr = NULL;
+
+	if (G_TK_KIND == TK_OR) {
+		logic_or_expr->op = create_token_node();
+		NEXT_TOKEN;
+		logic_or_expr->logic_or_expr = parse_logic_or_expr();
+	}
+	return logic_or_expr;
+}
+
+ast_node_t *parse_cond_expr()
+{
+	cond_expr_t *cond_expr;
+
+	cond_expr = (cond_expr_t *)bcc_malloc(sizeof(cond_expr_t));
+	cond_expr->logic_or_expr = parse_logic_or_expr();
+	cond_expr->expr = cond_expr->cond_expr = NULL;
+
+	if (G_TK_KIND == TK_QUESTION) {
+		cond_expr->que_op = create_token_node();
+		NEXT_TOKEN;
+		cond_expr->expr = parse_expr();
+		if (G_TK_KIND != TK_COLON) {
+			error_message("expected :");
+		}
+		cond_expr->colon_op = create_token_node();
+		NEXT_TOKEN;
+		cond_expr->cond_expr = parse_cond_expr();
+	}
+	return cond_expr;
+}
+
+/*
+assignment_expression
+: conditional_expression
+| unary_expression assignment_operator assignment_expression
+;
+*/
+/*
+because conditional_expression contains unary_expression,
+we need tread unary_expresion as conditional
+*/
+
+ast_node_t *parse_assign_expr()
+{
+	assign_expr_t *assign_expr;
+
+	assign_expr = (assign_expr_t *)bcc_malloc(sizeof(assign_expr_t));
+	assign_expr->cond_expr = parse_cond_expr();
+	assign_expr->assign_expr = NULL;
+
+	if (G_TK_KIND == TK_ASSIGN
+		|| G_TK_KIND == TK_ADD_ASSING
+		|| G_TK_KIND == TK_SUB_ASSIGN
+		|| G_TK_KIND == TK_MULTI_ASSIGN
+		|| G_TK_KIND == TK_DIVIDE_ASSIGN
+		|| G_TK_KIND == TK_MOD_ASSIGN
+		|| G_TK_KIND == TK_BITXOR_ASSIGN
+		|| G_TK_KIND == TK_BITOR_ASSIGN
+		|| G_TK_KIND == TK_BITAND_ASSIGN
+		|| G_TK_KIND == TK_LSHIFT_ASSIGN
+		|| G_TK_KIND == TK_RSHIFT_ASSIGN) {
+		assign_expr->assign_op = create_token_node();
+		NEXT_TOKEN;
+		assign_expr->assign_expr = parse_assign_expr();
+	}
+
+}
+
+ast_node_t *parse_expr()
+{
+	expr_t *expr;
+	
+	expr = (expr_t *)bcc_malloc(sizeof(expr_t));
+	expr->assign_expr = parse_assign_expr();
+	expr->expr = NULL;
+
+	if (G_TK_KIND == TK_COMMA) {
+		expr->op = create_token_node();
+		NEXT_TOKEN;
+		expr->expr = parse_expr();
+	}
+	return expr;
+}
+ast_node_t *parse_const_expr()
+{
+	const_expr_t *const_expr;
+
+	const_expr = (const_expr_t *)bcc_malloc(sizeof(const_expr_t));
+	const_expr->cond_expr = parse_cond_expr();
+
+	return const_expr;
+}
+
+
+/*parse statement*/
+
 ast_node_t *parse_spec_qual_list()
 {
 	spec_qual_list_t *spec_list;
@@ -18,11 +455,9 @@ ast_node_t *parse_spec_qual_list()
 
 	spec_list = (spec_qual_list_t *)bcc_malloc(sizeof(spec_qual_list_t));
 
-	type_spec = spec_list->type_sepc;
-	type_qual = spec_list->type_qual;
 	type_spec = type_qual = NULL;
-
 	invalid_decl_spec = FALSE;
+
 	while (1) {
 		switch (G_TK_KIND) {
 		case TK_VOID:
@@ -37,7 +472,7 @@ ast_node_t *parse_spec_qual_list()
 			if (type_spec == NULL) {
 				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
 				type_spec->kind = TYPE_SPEC_BASIC_TYPE;
-				bcc_strncpy(&type_spec->value->tk_val, &g_current_token, sizeof(token_t));
+				type_spec->value = create_token_node();
 			} else {
 				error_message("repeated type specifier");
 			}
@@ -64,39 +499,36 @@ ast_node_t *parse_spec_qual_list()
 			break;
 		case TK_IDENTIFIER:
 			if (type_spec == NULL) {
-				type_spec = (type_spec_t*)bcc_malloc(sizeof(type_spec_t));
-				bcc_strncpy(&type_spec->value->tk_val, &g_current_token, sizeof(token_t));
+				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
+				type_spec->value = create_token_node();
 			} else {
 				error_message("repeated type specifier");
 			}
 			break;
 		case TK_CONST:
 			if (type_qual == NULL) {
-				type_qual->const_tk = (ast_node_t *)bcc_malloc(sizeof(ast_node_t));
-				bcc_strncpy(&type_qual->const_tk->tk_val, &g_current_token, sizeof(token_t));
+				type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+				type_qual->const_tk = create_token_node();
 			}
 			break;
 		case TK_VOLATILE:
 			if (type_qual == NULL) {
-				type_qual->volatile_tk = (ast_node_t *)bcc_malloc(sizeof(ast_node_t));
-				bcc_strncpy(&type_qual->volatile_tk->tk_val, &g_current_token, sizeof(token_t));
+				type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+				type_qual->volatile_tk = create_token_node();
 			}
 			break;
 		default:
 			invalid_decl_spec = TRUE;
 			break;
 		}
+
 		if (invalid_decl_spec) {
 			break;
 		}
 		NEXT_TOKEN;
 	}
-
-}
-
-ast_node_t *parse_constant_expr()
-{
-
+	spec_list->type_sepc = type_spec;
+	spec_list->type_qual = type_qual;
 }
 
 ast_node_t *parse_declarator()
@@ -104,66 +536,66 @@ ast_node_t *parse_declarator()
 
 }
 
+ast_node_t *parse_struct_declarator()
+{
+	struct_declarator_t *struct_decl;
+
+	struct_decl = (struct_declarator_t *)bcc_malloc(sizeof(struct_declarator_t));
+	struct_decl->next = NULL;
+
+	if (G_TK_KIND != TK_COLON) {
+		struct_decl->declarator = parse_declarator();
+		if (G_TK_KIND == TK_COLON) {
+			struct_decl->op = create_token_node();
+			NEXT_TOKEN;
+			struct_decl->const_expr = parse_const_expr();
+		}
+	} else {
+		struct_decl->op = create_token_node();
+		NEXT_TOKEN;
+		struct_decl->const_expr = parse_const_expr();
+	}
+	return struct_decl;
+}
+
 ast_node_t *parse_struct_declarator_list()
 {
-	struct_declarator_list_t *list, *iter_list;
-	declarator_t *declarator;
-	const_expr_t *const_expr;
-	struct_declarator_list_t *next_declarator;
+	struct_declarator_t *list, *list_iter;
+	
+	list = list_iter = parse_struct_declarator();
 
-	list = iter_list = (struct_declarator_list_t*)bcc_malloc(sizeof(struct_declarator_list_t));
-
-	while (1) {
-		declarator = iter_list->declarator;
-		const_expr = iter_list->const_expr;
-		next_declarator = iter_list->next;
-		declarator = const_expr = next_declarator = NULL;
-
-		if (G_TK_KIND == TK_COLON) {
-			NEXT_TOKEN;
-			const_expr = parse_constant_expr();
-		} else {
-			NEXT_TOKEN;
-			declarator = parse_declarator();
-			if (G_TK_KIND == TK_COLON) {
-				NEXT_TOKEN;
-				const_expr = parse_constant_expr();
-			}
-		}
-		if (G_TK_KIND == TK_RBRACE) {
-			break;
-		}
-		next_declarator = (struct_declarator_list_t*)bcc_malloc(sizeof(struct_declarator_list_t));
-		iter_list = next_declarator;
+	while (G_TK_KIND == TK_COMMA) {
+		list_iter->next = parse_struct_declarator();
+		list_iter = list_iter->next;
 	}
+	NEXT_TOKEN;
 	return list;
+}
+
+ast_node_t *parse_struct_declaration()
+{
+	struct_declaration_t *struct_decl;
+
+	struct_decl = (struct_declaration_t *)bcc_malloc(sizeof(struct_declaration_t));
+	struct_decl->spec_qual = parse_spec_qual_list();
+	struct_decl->struct_decl = parse_struct_declarator_list();
+	struct_decl->next = NULL;
+
+	return struct_decl;
 }
 
 ast_node_t *parse_struct_declaration_list()
 {
-	struct_declaration_t *struct_decl, *iter_struct_decl;
-	spec_qual_list_t *spec_qual;
-	struct_declarator_list_t *decl_list;
-	struct_declaration_t *next_decl;
-
-	struct_decl = iter_struct_decl = (struct_declaration_t*)bcc_malloc(sizeof(struct_declaration_t));
-	NEXT_TOKEN;
-	while (1) {
-		spec_qual = iter_struct_decl->spec_qual_list;
-		decl_list = iter_struct_decl->struct_decl_list;
-		next_decl = iter_struct_decl->next;
-		spec_qual = decl_list = next_decl = NULL;
-
-		spec_qual = parse_spec_qual_list();
-		decl_list = parse_struct_declarator_list();
-
-		if (G_TK_KIND != TK_RBRACE) {
-			break;
-		}
-		next_decl = (struct_declaration_t*)bcc_malloc(sizeof(struct_declaration_t));
-		iter_struct_decl = next_decl;
+	struct_declaration_t *list, *list_iter;
+	
+	list = list_iter = parse_struct_declaration();
+	while (G_TK_KIND != TK_RBRACE) {
+		list_iter->next = parse_struct_declaration();
+		list_iter = list_iter->next;
 	}
-	return struct_decl;
+	NEXT_TOKEN;
+	return list;
+
 }
 
 ast_node_t *parse_struct_union()
@@ -171,46 +603,52 @@ ast_node_t *parse_struct_union()
 	struct_or_union_spec_t *struct_union;
 
 	struct_union = (struct_or_union_spec_t*)bcc_malloc(sizeof(struct_or_union_spec_t));
-	bcc_strncpy(&struct_union->s_or_u, &g_current_token, sizeof(token_t));
+	struct_union->s_or_u = create_token_node();
 
 	NEXT_TOKEN;
 	if (G_TK_KIND == TK_LBRACE) {
 		struct_union->struct_decl = parse_struct_declaration_list();
+		NEXT_TOKEN;
 	} else if (G_TK_KIND == TK_IDENTIFIER) {
-		bcc_strncpy(&struct_union->ident, &g_current_token, sizeof(token_t));
+		struct_union->ident = create_token_node();
 		NEXT_TOKEN;
 		if (G_TK_KIND == TK_LBRACE) {
 			struct_union->struct_decl = parse_struct_declaration_list();
+			NEXT_TOKEN;
 		}
 	} else {
 		error_message("invalid token");
 	}
+	return struct_union;
 }
 
-ast_node_t *parse_enum_list()
+ast_node_t *parse_enumerator()
 {
-	enumerator_t *enum_list, *enum_iter;
-	const_expr_t *const_expr;
-	enumerator_t *next_enum;
-	
-	enum_list = enum_iter = (enumerator_t*)bcc_malloc(sizeof(enumerator_t));
+	enumerator_t *enumerator;
 
-	while (G_TK_KIND != TK_RBRACE) {
-		const_expr = enum_iter->const_expr;
-		next_enum = enum_iter->next;
-		const_expr = next_enum = NULL;
-
-		bcc_strncpy(&enum_iter->ident->tk_val, &g_current_token, sizeof(token_t));
+	enumerator = (enumerator_t *)bcc_malloc(sizeof(enumerator_t));
+	enumerator->ident = create_token_node();
+	NEXT_TOKEN;
+	if (G_TK_KIND == TK_ASSIGN) {
+		enumerator->op = create_token_node();
 		NEXT_TOKEN;
-		if (G_TK_KIND == TK_ASSIGN) {
-			const_expr = parse_constant_expr();
-		}
-		if (G_TK_KIND == TK_DOT) {
-			enum_iter = (enumerator_t*)bcc_malloc(sizeof(enumerator_t));
-			next_enum = enum_iter;
-			NEXT_TOKEN;
-		}
+		enumerator->const_expr = parse_const_expr();
 	}
+	return enumerator;
+}
+
+ast_node_t *parse_enumerator_list()
+{
+	enumerator_t *list, *list_iter;
+
+	list = list_iter = (enumerator_t *)bcc_malloc(sizeof(enumerator_t));
+	list_iter = parse_enumerator();
+
+	while (G_TK_KIND == TK_COMMA) {
+		list_iter->next = parse_enumerator();
+		list_iter = list_iter->next;
+	}
+	return list_iter;
 }
 
 ast_node_t *parse_enum()
@@ -218,15 +656,17 @@ ast_node_t *parse_enum()
 	enum_spec_t *enum_spec;
 	enum_spec = (enum_spec_t*)bcc_malloc(sizeof(enumerator_t));
 
+	enum_spec->enum_keyword = create_token_node();
 	NEXT_TOKEN;
-
 	if (G_TK_KIND = TK_LBRACE) {
-		enum_spec->enum_decl = parse_enum_list();
+		enum_spec->enum_decl = parse_enumerator_list();
+		NEXT_TOKEN;
 	} else if (G_TK_KIND == TK_IDENTIFIER) {
-		bcc_strncpy(&enum_spec->ident, &g_current_token, sizeof(token_t));
+		enum_spec->ident = create_token_node();
 		NEXT_TOKEN;
 		if (G_TK_KIND = TK_LBRACE) {
-			enum_spec->enum_decl = parse_enum_list();
+			enum_spec->enum_decl = parse_enumerator_list();
+			NEXT_TOKEN;
 		}
 	} else {
 		error_message("invalid token\n");
@@ -242,9 +682,6 @@ ast_node_t *parse_decl_spec()
 	BOOL invalid_decl_spec;
 
 	decl_spec = (decl_spec_t *)bcc_malloc(sizeof(decl_spec_t));
-	store_cls = decl_spec->store_cls;
-	type_spec = decl_spec->type_spec;
-	type_qual = decl_spec->type_qual;
 	store_cls = type_qual = type_spec = NULL;
 
 	invalid_decl_spec = FALSE;
@@ -256,8 +693,8 @@ ast_node_t *parse_decl_spec()
 		case TK_AUTO:
 		case TK_REGISTER:
 			if (store_cls == NULL) {
-				store_cls = (store_cls_spec_t*)bcc_malloc(sizeof(store_cls_spec_t));
-				bcc_strncpy(&store_cls->value->tk_val, &g_current_token, sizeof(token_t));
+				store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(store_cls_spec_t));
+				store_cls->value = create_token_node();
 			} else {
 				error_message("repeated storage class specifier");
 			}
@@ -274,7 +711,7 @@ ast_node_t *parse_decl_spec()
 			if (type_spec == NULL) {
 				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
 				type_spec->kind = TYPE_SPEC_BASIC_TYPE;
-				bcc_strncpy(&type_spec->value->tk_val, &g_current_token, sizeof(token_t));
+				type_spec->value = create_token_node();
 			}
 			else {
 				error_message("repeated type specifier");
@@ -303,8 +740,8 @@ ast_node_t *parse_decl_spec()
 			break;
 		case TK_IDENTIFIER:
 			if (type_spec == NULL) {
-				type_spec = (type_spec_t*)bcc_malloc(sizeof(type_spec_t));
-				bcc_strncpy(&type_spec->value->tk_val, &g_current_token, sizeof(token_t));
+				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
+				type_spec->value = create_token_node();
 			}
 			else {
 				error_message("repeated type specifier");
@@ -312,14 +749,14 @@ ast_node_t *parse_decl_spec()
 			break;
 		case TK_CONST:
 			if (type_qual == NULL) {
-				type_qual->const_tk = (ast_node_t *)bcc_malloc(sizeof(ast_node_t));
-				bcc_strncpy(&type_qual->const_tk->tk_val, &g_current_token, sizeof(token_t));
+				type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+				type_qual->const_tk = create_token_node();
 			}
 			break;
 		case TK_VOLATILE:
 			if (type_qual == NULL) {
-				type_qual->volatile_tk = (ast_node_t *)bcc_malloc(sizeof(ast_node_t));
-				bcc_strncpy(&type_qual->volatile_tk->tk_val, &g_current_token, sizeof(token_t));
+				type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+				type_qual->volatile_tk = create_token_node();
 			}
 			break;
 		default:
@@ -331,6 +768,83 @@ ast_node_t *parse_decl_spec()
 		}
 		NEXT_TOKEN;
 	}
+	decl_spec->store_cls = store_cls;
+	decl_spec->type_spec = type_spec;
+	decl_spec->type_qual = type_qual;
+	
+	return decl_spec;
+}
+
+ast_node_t *parse_decl_postfix()
+{
+	decl_postfix_t *decl_postfix, *tmp_decl_postfix;
+
+	decl_postfix = tmp_decl_postfix = NULL;
+	while (1) {
+		switch (G_TK_KIND) {
+		case TK_LBRACKET:
+			NEXT_TOKEN;
+			CREATE_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
+			if (G_TK_KIND == TK_RBRACKET) {
+				decl_postfix->next = NULL;
+				break;
+			}
+			decl_postfix->const_expr = parse_const_expr();
+			break;
+		case TK_LPAREN:
+			NEXT_TOKEN;
+			CREATE_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
+			if (G_TK_KIND == TK_RPAREN) {
+				decl_postfix->next = NULL;
+				break;
+			}
+			if (G_TK_KIND == TK_IDENTIFIER) {
+				decl_postfix->ident_list = parse_ident_list();
+				break;
+			}
+			decl_postfix->param_list = parse_param_type_list();
+			break;
+		default:
+			return decl_postfix;
+		}
+		NEXT_TOKEN;
+	}
+}
+
+ast_node_t *parse_direct_declarator()
+{
+	direct_declarator_t *direct_decl;
+
+	direct_decl = (direct_declarator_t *)bcc_malloc(sizeof(direct_declarator_t));
+	direct_decl->decl = direct_decl->ident = direct_decl->post_fix = NULL;
+
+	if (G_TK_KIND == TK_IDENTIFIER) {
+		direct_decl->is_ident = TRUE;
+		direct_decl->ident = create_token_node();
+	} else if (G_TK_KIND == TK_LPAREN) {
+		direct_decl->is_ident = FALSE;
+		NEXT_TOKEN;
+		direct_decl->decl = parse_declarator();
+		NEXT_TOKEN;
+	} else {
+		error_message("invalid direct declarator");
+	}
+	direct_decl->post_fix = parse_decl_postfix();
+
+	return direct_decl;
+}
+
+ast_node_t *parse_declarator()
+{
+	declarator_t *decl;
+
+	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
+
+	if (G_TK_KIND == TK_MULTIPLY) {
+		decl->pointer = create_token_node();
+	}
+	decl->direct_declarator = parse_direct_declarator();
+	return decl;
 }
 
 ast_node_t *parse_external_decl()
