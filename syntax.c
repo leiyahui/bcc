@@ -847,6 +847,82 @@ ast_node_t *parse_declarator()
 	return decl;
 }
 
+ast_node_t *parse_initializer_list()
+{
+	initializer_list_t *init_list;
+
+	init_list = (initializer_list_t *)bcc_malloc(sizeof(initializer_list_t));
+	init_list->initializer = parse_initializer;
+	init_list->next = NULL;
+	while (G_TK_KIND == TK_COMMA && G_TK_KIND != TK_RBRACE) {
+		NEXT_TOKEN;
+		init_list->next = parse_initializer();
+	}
+	return init_list;
+}
+
+ast_node_t *parse_initializer()
+{
+	initializer_t *initializer;
+
+	initializer = (initializer_t *)bcc_malloc(sizeof(initializer_t));
+	initializer->assign_expr = initializer->initialier_list = NULL;
+	if (G_TK_KIND == TK_LBRACE) {
+		NEXT_TOKEN;
+		initializer->initialier_list = parse_initializer_list();
+		if (G_TK_KIND == TK_COMMA) {
+			NEXT_TOKEN;
+		}
+		NEXT_TOKEN;
+	}
+	initializer->assign_expr = parse_assign_expr();
+	return initializer;
+}
+
+
+ast_node_t *parse_init_declarator()
+{
+	init_declarator_t *init_decl;
+
+	init_decl = (init_declarator_t *)bcc_malloc(sizeof(init_declarator_t));
+	init_decl->declarator = parse_declarator();
+	init_decl->op = init_decl->next_decl = NULL;
+
+	if (G_TK_KIND == TK_ASSIGN) {
+		init_decl->op = create_token_node();
+		NEXT_TOKEN;
+		init_decl->initializer = parse_initializer();
+	}
+	return init_decl;
+}
+
+ast_node_t *parse_init_declarator_list()
+{
+	init_declarator_t *list, *list_iter;
+
+	list = list_iter = parse_init_declarator_list();
+	while (G_TK_KIND == TK_COMMA) {
+		list_iter->next_decl = parse_init_declarator_list();
+		list_iter = list_iter->next_decl;
+	}
+	return list;
+}
+
+ast_node_t *parse_declaration()
+{
+	declaration_t *decl;
+	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
+
+	decl->decl_spec = parse_decl_spec();
+	decl->init_decl = NULL;
+
+	if (G_TK_KIND == TK_SEMICOLON) {
+		decl->init_decl = parse_init_declarator_list();
+	}
+	NEXT_TOKEN;
+	return decl;
+}
+
 ast_node_t *parse_external_decl()
 {
 	ast_node_t *decl_spec;
