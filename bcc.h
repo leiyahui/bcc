@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "common.h"
 #include "load_file.h"
+#include "hash.h"
 #include "lex.h"
 #include "syntax.h"
 #include "output_message.h"
