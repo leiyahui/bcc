@@ -55,3 +55,49 @@ char *bcc_memcpy(char *dest, const char *src, int len)
 	}
 	return memcpy(dest, src, len);
 }
+
+vector_t *create_vector(int size)
+{
+	vector_t *vector;
+
+	vector = (vector_t *)bcc_malloc(sizeof(vector_t));
+
+	if (size <= 0) {
+		size = DEFAULT_VECTOR_SIZE;
+	}
+	vector->data = (char *)bcc_malloc(sizeof(char*) * size);
+	vector->len = 0;
+	vector->size = size;
+
+	return vector;
+}
+
+BOOL vector_full(vector_t *vector)
+{
+	if (vector->len == vector->size) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+void resize_vector(vector_t *vector)
+{
+	int new_size;
+	char **new_data;
+
+	new_size = vector->size * 2;
+	new_data = (char *)bcc_malloc(sizeof(char*) * new_size);
+	bcc_memcpy(new_data, vector->data, vector->len);
+	bcc_free(vector->data);
+	vector->size = new_size;
+	vector->data = new_data;
+}
+
+void insert_vector(vector_t *vector, char *item)
+{
+	if (vector_full(vector)) {
+		resize_vector(vector);
+	}
+	vector->data[vector->len] = ele;
+	vector->len++;
+}
