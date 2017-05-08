@@ -38,7 +38,7 @@ typedef struct _hashtable_t {
 
 extern hashtable_t g_identify_hashtable;
 int hash_key_value(int key_value, int table_size);
-void init_hashtable(hashtable_t *hashtable);
+void init_hashtable(hashtable_t *hashtable, hashtable_t *parent);
 char* insert_hash(hashtable_t *hashtable, char *str, int len);
 char* lookup_hash(hashtable_t *hashtable, char *str, int len);
 
