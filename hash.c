@@ -101,11 +101,12 @@ int hash_key_value(int key_value, int table_size)
 {
 	return key_value % table_size;
 }
-void init_hashtable(hashtable_t *hashtable)
+void init_hashtable(hashtable_t *hashtable, hashtable_t *parent)
 {
 	hashtable->ele_num = 0;
-	hashtable->size = DEFAULT_HASHTABLE_NUM;
-	hashtable->table = (hash_ele_t *)bcc_calloc(DEFAULT_HASHTABLE_NUM, sizeof(hash_ele_t));
+	hashtable->size = DEFAULT_HASHTABLE_SIZE;
+	hashtable->table = (hash_ele_t *)bcc_calloc(DEFAULT_HASHTABLE_SIZE, sizeof(hash_ele_t));
+	hashtable->parent = parent;
 }
 
 void insert_key_to_hash(hashtable_t *hashtable, char *key_value, char *str)

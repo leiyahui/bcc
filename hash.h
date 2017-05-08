@@ -30,10 +30,11 @@ typedef struct _hashtable_t {
 	int size;
 	int ele_num;
 	hash_ele_t *table;
+	struct _hashtable_t *parent;
 }hashtable_t;
 
 
-#define DEFAULT_HASHTABLE_NUM 200
+#define DEFAULT_HASHTABLE_SIZE 200
 
 extern hashtable_t g_identify_hashtable;
 int hash_key_value(int key_value, int table_size);
