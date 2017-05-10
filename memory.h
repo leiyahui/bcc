@@ -38,4 +38,5 @@ void resize_vector(vector_t *vector);
 
 void insert_vector(vector_t *vector, char *item);
 
+void out_vector(vector_t *vector);
 #endif

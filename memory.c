@@ -56,6 +56,8 @@ char *bcc_memcpy(char *dest, const char *src, int len)
 	return memcpy(dest, src, len);
 }
 
+/*vector*/
+
 vector_t *create_vector(int size)
 {
 	vector_t *vector;
@@ -98,6 +100,12 @@ void insert_vector(vector_t *vector, char *item)
 	if (vector_full(vector)) {
 		resize_vector(vector);
 	}
-	vector->data[vector->len] = ele;
+	vector->data[vector->len] = item;
 	vector->len++;
+}
+
+void out_vector(vector_t *vector)
+{
+	vector->len--;
+	bcc_free(vector->data[vector->len]);
 }
