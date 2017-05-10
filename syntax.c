@@ -3,12 +3,114 @@
 
 hashtable_t g_external_symbol_table;
 
+
+int G_LEVEL = 0;
+vector_t *g_td_table;					//this table is used for typedef name
+vector_t *g_td_overload_table;			//this table is used for overloaded name of typedef name
+
+tdname_t *create_tdname(char *name)
+{
+	tdname_t *td_name = (tdname_t *)bcc_malloc(sizeof(tdname_t));
+	td_name->level = G_LEVEL;
+	td_name->name = name;
+	
+	return td_name;
+}
+
+void insert_td_table(char *name)
+{
+	tdname_t *td_name = create_tdname(name);
+	insert_vector(g_td_table, td_name);
+}
+
+void insert_td_overload_table(char *name)
+{
+	tdname_t *td_name = create_tdname(name);
+	insert_vector(g_td_overload_table, td_name);
+}
+
+int get_td_level(char *name)
+{
+	int i;
+	tdname_t *tmp_td;
+
+	for (i = g_td_table->len - 1; i >= 0; i--) {
+		tmp_td = g_td_table->data[i];
+		if (tmp_td->name == name) {
+			return tmp_td->level;
+		}
+	}
+	return -1;
+}
+
+int get_td_overload_level(char *name)
+{
+	int i;
+	tdname_t *tmp_td;
+
+	for (i = 0; i < g_td_table->len; i++) {
+		tmp_td = g_td_overload_table->data[i];
+		if (tmp_td->name == name) {
+			return tmp_td->level;
+		}
+	}
+	return -1;
+}
+
+void pop_higher_level_td_table()
+{
+	int i;
+	tdname_t *tmp_td;
+
+	for (i = g_td_table->len - 1; i >= 0; i--) {
+		tmp_td = g_td_table->data;
+		if (tmp_td->level > G_LEVEL) {
+			out_vector(g_td_table);
+		} else {
+			break;
+		}
+	}
+}
+
+void pop_higher_level_td_overload_table()
+{
+	int i;
+	tdname_t *tmp_td;
+
+	for (i = g_td_overload_table->len - 1; i >= 0; i--) {
+		tmp_td = g_td_overload_table->data;
+		if (tmp_td->level > G_LEVEL) {
+			out_vector(g_td_overload_table);
+		} else {
+			break;
+		}
+	}
+}
+
+BOOL is_typedef_name(char *name)
+{
+	int td_level;
+	int td_overload_level;
+	
+	td_level = get_td_level(name);
+	td_overload_level = get_td_overload_level(name);
+
+	if (td_level > td_overload_level) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
 #define NEXT_TOKEN get_next_token();
 
 #define G_TK_KIND	g_current_token.tk_kind
 #define G_TK_VALUE	g_current_token.token_value
 #define G_TK_LINE	g_current_token.line;
 
+#define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {			\
+							error_message("expect token kind is:%d", tk_kind);				\		
+						}
 
 ast_node_t *create_token_node()
 {
@@ -498,11 +600,16 @@ ast_node_t *parse_spec_qual_list()
 			}
 			break;
 		case TK_IDENTIFIER:
-			if (type_spec == NULL) {
-				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
-				type_spec->value = create_token_node();
+			if (is_typedef_name(g_current_token.token_value.ptr)) {
+				if (type_spec == NULL) {
+					type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
+					type_spec->kind = TYPE_SPEC_TYPEDEF;
+					type_spec->value = create_token_node();
+				} else {
+					error_message("repeated type specifier");
+				}
 			} else {
-				error_message("repeated type specifier");
+				invalid_decl_spec = TRUE;
 			}
 			break;
 		case TK_CONST:
@@ -529,11 +636,6 @@ ast_node_t *parse_spec_qual_list()
 	}
 	spec_list->type_sepc = type_spec;
 	spec_list->type_qual = type_qual;
-}
-
-ast_node_t *parse_declarator()
-{
-
 }
 
 ast_node_t *parse_struct_declarator()
@@ -698,6 +800,9 @@ ast_node_t *parse_decl_spec()
 			} else {
 				error_message("repeated storage class specifier");
 			}
+			if (G_TK_KIND == TK_TYPEDEF) {
+				insert_td_table(g_current_token.token_value.ptr);
+			}
 			break;
 		case TK_VOID:
 		case TK_CHAR:
@@ -739,12 +844,16 @@ ast_node_t *parse_decl_spec()
 			}
 			break;
 		case TK_IDENTIFIER:
-			if (type_spec == NULL) {
-				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
-				type_spec->value = create_token_node();
-			}
-			else {
-				error_message("repeated type specifier");
+			if (is_typedef_name(g_current_token.token_value.ptr)) {
+				if (type_spec == NULL) {
+					type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
+					type_spec->kind = TYPE_SPEC_TYPEDEF;
+					type_spec->value = create_token_node();
+				} else {
+					error_message("repeated type specifier");
+				}
+			} else {
+				invalid_decl_spec = TRUE;
 			}
 			break;
 		case TK_CONST:
@@ -900,7 +1009,7 @@ ast_node_t *parse_init_declarator_list()
 {
 	init_declarator_t *list, *list_iter;
 
-	list = list_iter = parse_init_declarator_list();
+	list = list_iter = parse_init_declarator();
 	while (G_TK_KIND == TK_COMMA) {
 		list_iter->next_decl = parse_init_declarator_list();
 		list_iter = list_iter->next_decl;
@@ -915,19 +1024,84 @@ ast_node_t *parse_declaration()
 
 	decl->decl_spec = parse_decl_spec();
 	decl->init_decl = NULL;
+	decl->next = NULL;
 
-	if (G_TK_KIND == TK_SEMICOLON) {
+	if (G_TK_KIND != TK_SEMICOLON) {
 		decl->init_decl = parse_init_declarator_list();
 	}
 	NEXT_TOKEN;
 	return decl;
 }
 
+BOOL is_decl_spec() {
+	if (G_TK_KIND == TK_TYPEDEF
+		|| G_TK_KIND == TK_EXTERN
+		|| G_TK_KIND == TK_STATIC
+		|| G_TK_KIND == TK_AUTO
+		|| G_TK_KIND == TK_REGISTER
+		|| G_TK_KIND == TK_VOID
+		|| G_TK_KIND == TK_CHAR
+		|| G_TK_KIND == TK_SHORT
+		|| G_TK_KIND == TK_INT
+		|| G_TK_KIND == TK_LONG
+		|| G_TK_KIND == TK_FLOAT
+		|| G_TK_KIND == TK_DOUBLE
+		|| G_TK_KIND == TK_SIGNED
+		|| G_TK_KIND == TK_UNSIGNED
+		|| G_TK_KIND == TK_STRUCT
+		|| G_TK_KIND == TK_ENUM
+		|| G_TK_KIND == TK_CONST
+		|| G_TK_KIND == TK_VOLATILE) {
+		return TRUE;
+	}
+	if (G_TK_KIND == TK_IDENTIFIER) {
+		if (is_typedef_name(g_current_token.token_value.ptr)) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+ast_node_t *parse_declaration_list()
+{
+	declaration_t *list;
+	list = parse_declaration();
+	
+	if (is_decl_spec()) {
+		list->next = parse_declaration_list();
+	}
+	return list;
+}
+
 ast_node_t *parse_external_decl()
 {
-	ast_node_t *decl_spec;
+	declaration_t *decl;
+	func_def_t *func_def;
+	decl_spec_t *decl_spec;
+	init_declarator_t *init_decl;
 
-	NEXT_TOKEN;
 	decl_spec = parse_decl_spec();
+	if (G_TK_KIND != TK_SEMICOLON) {
+		init_decl = parse_init_declarator_list();
+	}
+	if (init_decl->initializer != NULL) {
+		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
+		decl->decl_spec = decl_spec;
+		decl->init_decl = init_decl;
+		EXPECT(TK_SEMICOLON);
+	}
+	if (G_TK_KIND == TK_SEMICOLON) {
+		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
+		decl->decl_spec = decl_spec;
+		decl->init_decl = init_decl;
+		return decl;
+	} else (G_TK_KIND == TK_LBRACE) {
+		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
+		func_def->decl_spec_ptr = decl_spec;
+		func_def->decl_ptr = 
+	}
+	func_def->decl_spec_ptr = decl_spec;
+	func_def->decl_ptr = ((init_declarator_t *)decl->init_decl)->declarator;
+	func_def = parse_declaration_list();
 
 }

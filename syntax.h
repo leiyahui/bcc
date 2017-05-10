@@ -13,6 +13,7 @@ typedef struct _store_cls_spec_t {
 #define TYPE_SPEC_BASIC_TYPE	1
 #define TYPE_SPEC_STRUCT_UNION	2
 #define TYPE_SPEC_ENUM_SPEC		3
+#define TYPE_SPEC_TYPEDEF		4
 
 typedef struct _type_spec_t {
 	int kind;
@@ -373,5 +374,11 @@ typedef struct _func_def_t {
 
 ast_node_t *parse_enum();
 ast_node_t *parse_struct_union();
+
+
+typedef struct _tdname_t {
+	char *name;
+	int level;
+}tdname_t;
 
 #endif
