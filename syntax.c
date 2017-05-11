@@ -106,7 +106,7 @@ BOOL is_typedef_name(char *name)
 
 #define G_TK_KIND	g_current_token.tk_kind
 #define G_TK_VALUE	g_current_token.token_value
-#define G_TK_LINE	g_current_token.line;
+#define G_TK_LINE	g_current_token.line
 
 #define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {			\
 							error_message("expect token kind is:%d", tk_kind);				\		
