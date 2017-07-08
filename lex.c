@@ -484,7 +484,7 @@ void scan_number()
 
 /*string or character*/
 
-/*For example, 'ab' for a target with an 8-bit char would be interpreted as ¡®(int) ((unsigned char) 'a' * 256 + (unsigned char) 'b')¡¯, and '\234a' as ¡®(int) ((unsigned char) '\234' * 256 + (unsigned char) 'a')¡¯.*/
+/*For example, 'ab' for a target with an 8-bit char would be interpreted as ¡®(int)((unsigned char) 'a' * 256 + (unsigned char) 'b')¡¯, and '\234a' as ¡®(int) ((unsigned char) '\234' * 256 + (unsigned char) 'a')¡¯.*/
 
 int turn_ascii_to_num(int ascii_value)
 {

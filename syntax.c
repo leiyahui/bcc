@@ -1,105 +1,138 @@
 #include "bcc.h"
 
 
-hashtable_t g_external_symbol_table;
+hashtable_t  g_external_symbol_table;
+coordinate_t g_recorded_coord;
 
+scope_t g_file_scope;
+scope_t *g_current_scope;
 
-int G_LEVEL = 0;
-vector_t *g_td_table;					//this table is used for typedef name
-vector_t *g_td_overload_table;			//this table is used for overloaded name of typedef name
+//int G_LEVEL = 0;
+//vector_t *g_td_table;					//this table is used for typedef name
+//vector_t *g_td_overload_table;			//this table is used for overloaded name of typedef name
 
-tdname_t *create_tdname(char *name)
-{
-	tdname_t *td_name = (tdname_t *)bcc_malloc(sizeof(tdname_t));
-	td_name->level = G_LEVEL;
-	td_name->name = name;
-	
-	return td_name;
-}
-
-void insert_td_table(char *name)
-{
-	tdname_t *td_name = create_tdname(name);
-	insert_vector(g_td_table, td_name);
-}
-
-void insert_td_overload_table(char *name)
-{
-	tdname_t *td_name = create_tdname(name);
-	insert_vector(g_td_overload_table, td_name);
-}
-
-int get_td_level(char *name)
-{
-	int i;
-	tdname_t *tmp_td;
-
-	for (i = g_td_table->len - 1; i >= 0; i--) {
-		tmp_td = g_td_table->data[i];
-		if (tmp_td->name == name) {
-			return tmp_td->level;
-		}
-	}
-	return -1;
-}
-
-int get_td_overload_level(char *name)
-{
-	int i;
-	tdname_t *tmp_td;
-
-	for (i = 0; i < g_td_table->len; i++) {
-		tmp_td = g_td_overload_table->data[i];
-		if (tmp_td->name == name) {
-			return tmp_td->level;
-		}
-	}
-	return -1;
-}
-
-void pop_higher_level_td_table()
-{
-	int i;
-	tdname_t *tmp_td;
-
-	for (i = g_td_table->len - 1; i >= 0; i--) {
-		tmp_td = g_td_table->data;
-		if (tmp_td->level > G_LEVEL) {
-			out_vector(g_td_table);
-		} else {
-			break;
-		}
-	}
-}
-
-void pop_higher_level_td_overload_table()
-{
-	int i;
-	tdname_t *tmp_td;
-
-	for (i = g_td_overload_table->len - 1; i >= 0; i--) {
-		tmp_td = g_td_overload_table->data;
-		if (tmp_td->level > G_LEVEL) {
-			out_vector(g_td_overload_table);
-		} else {
-			break;
-		}
-	}
-}
+//tdname_t *create_tdname(char *name)
+//{
+//	tdname_t *td_name = (tdname_t *)bcc_malloc(sizeof(tdname_t));
+//	td_name->level = G_LEVEL;
+//	td_name->name = name;
+//	
+//	return td_name;
+//}
+//
+//void insert_td_table(char *name)
+//{
+//	tdname_t *td_name = create_tdname(name);
+//	insert_vector(g_td_table, td_name);
+//}
+//
+//void insert_td_overload_table(char *name)
+//{
+//	tdname_t *td_name = create_tdname(name);
+//	insert_vector(g_td_overload_table, td_name);
+//}
+//
+//int get_td_level(char *name)
+//{
+//	int i;
+//	tdname_t *tmp_td;
+//
+//	for (i = g_td_table->len - 1; i >= 0; i--) {
+//		tmp_td = g_td_table->data[i];
+//		if (tmp_td->name == name) {
+//			return tmp_td->level;
+//		}
+//	}
+//	return -1;
+//}
+//
+//int get_td_overload_level(char *name)
+//{
+//	int i;
+//	tdname_t *tmp_td;
+//
+//	for (i = 0; i < g_td_table->len; i++) {
+//		tmp_td = g_td_overload_table->data[i];
+//		if (tmp_td->name == name) {
+//			return tmp_td->level;
+//		}
+//	}
+//	return -1;
+//}
+//
+//void pop_higher_level_td_table()
+//{
+//	int i;
+//	tdname_t *tmp_td;
+//
+//	for (i = g_td_table->len - 1; i >= 0; i--) {
+//		tmp_td = g_td_table->data;
+//		if (tmp_td->level > G_LEVEL) {
+//			out_vector(g_td_table);
+//		} else {
+//			break;
+//		}
+//	}
+//}
+//
+//void pop_higher_level_td_overload_table()
+//{
+//	int i;
+//	tdname_t *tmp_td;
+//
+//	for (i = g_td_overload_table->len - 1; i >= 0; i--) {
+//		tmp_td = g_td_overload_table->data;
+//		if (tmp_td->level > G_LEVEL) {
+//			out_vector(g_td_overload_table);
+//		} else {
+//			break;
+//		}
+//	}
+//}
+//
+//BOOL is_typedef_name(char *name)
+//{
+//	int td_level;
+//	int td_overload_level;
+//	
+//	td_level = get_td_level(name);
+//	td_overload_level = get_td_overload_level(name);
+//
+//	if (td_level > td_overload_level) {
+//		return TRUE;
+//	}
+//	return FALSE;
+//}
 
 BOOL is_typedef_name(char *name)
 {
-	int td_level;
-	int td_overload_level;
-	
-	td_level = get_td_level(name);
-	td_overload_level = get_td_overload_level(name);
+	scope_t *scope;
+	BOOL typedefed;
+	int level;
 
-	if (td_level > td_overload_level) {
-		return TRUE;
+	level = 0;
+	typedefed = FALSE;
+	scope = g_current_scope;
+	while (scope != NULL) {
+		level++;
+		if (in_namespace(&scope->tdname, name)) {
+			typedefed = TRUE;
+			break;
+		}
+		scope = scope->parent;
 	}
-	return FALSE;
+	if (typedefed == TRUE) {
+		scope = g_current_scope;
+		while (level > 1) {
+			if (in_namespace(&(scope->other_ident), name)) {
+				typedefed = FALSE;
+				break;
+			}
+		}
+	}
+	return typedefed;
 }
+
 
 
 #define NEXT_TOKEN get_next_token();
@@ -109,8 +142,16 @@ BOOL is_typedef_name(char *name)
 #define G_TK_LINE	g_current_token.line;
 
 #define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {			\
-							error_message("expect token kind is:%d", tk_kind);				\		
+							error_message("expect token kind is:%d", tk_kind);				\	
 						}
+
+#define SKIP(tk_kind)   if (G_TK_KIND != tk_kind) {			\
+							error_message("expect token kind is:%d", tk_kind);				\	
+						}									\
+						NEXT_TOKEN;
+
+#define SAVE_COORDINATE g_recorded_coord.g_cursor = G_CURSOR;	\
+						g_recorded_coord.line = G_LINE;
 
 ast_node_t *create_token_node()
 {
@@ -709,12 +750,14 @@ ast_node_t *parse_struct_union()
 
 	NEXT_TOKEN;
 	if (G_TK_KIND == TK_LBRACE) {
+		NEXT_TOKEN;
 		struct_union->struct_decl = parse_struct_declaration_list();
 		NEXT_TOKEN;
 	} else if (G_TK_KIND == TK_IDENTIFIER) {
 		struct_union->ident = create_token_node();
 		NEXT_TOKEN;
 		if (G_TK_KIND == TK_LBRACE) {
+			NEXT_TOKEN;
 			struct_union->struct_decl = parse_struct_declaration_list();
 			NEXT_TOKEN;
 		}
@@ -761,12 +804,14 @@ ast_node_t *parse_enum()
 	enum_spec->enum_keyword = create_token_node();
 	NEXT_TOKEN;
 	if (G_TK_KIND = TK_LBRACE) {
+		NEXT_TOKEN;
 		enum_spec->enum_decl = parse_enumerator_list();
 		NEXT_TOKEN;
 	} else if (G_TK_KIND == TK_IDENTIFIER) {
 		enum_spec->ident = create_token_node();
 		NEXT_TOKEN;
 		if (G_TK_KIND = TK_LBRACE) {
+			NEXT_TOKEN;
 			enum_spec->enum_decl = parse_enumerator_list();
 			NEXT_TOKEN;
 		}
@@ -1073,6 +1118,197 @@ ast_node_t *parse_declaration_list()
 	return list;
 }
 
+ast_node_t *parse_labeled_statement()
+{
+	labeled_statement_t *labeled_state;
+
+	labeled_state = (labeled_statement_t *)bcc_malloc(sizeof(labeled_statement_t));
+
+	labeled_state->token = create_token_node();
+	switch (G_TK_KIND) {
+	case TK_IDENTIFIER:
+	case TK_DEFAULT:
+		SKIP(TK_COLON);
+		break;
+	case TK_CASE:
+		labeled_state->const_expr_ptr = parse_const_expr();
+		SKIP(TK_COLON);
+		break;
+	default:
+		error_message("invalid token\n");
+	}
+	labeled_state->statement = parse_statement();
+
+	return labeled_state;
+}
+
+ast_node_t *parse_expr_statement()
+{
+	expr_statement_t *expr_state;
+
+	expr_state = (expr_statement_t *)bcc_malloc(sizeof(expr_statement_t));
+	
+	expr_state->expr = parse_expr();
+	SKIP(TK_SEMICOLON);
+
+	return expr_state;
+}
+
+ast_node_t *parse_selection_statement()
+{
+	select_statement_t *select_state;
+	int select_kind;
+
+	select_state = (select_statement_t *)bcc_malloc(sizeof(select_statement_t));
+	
+	select_state->fir_token = create_token_node();
+	select_kind = G_TK_KIND;
+
+	NEXT_TOKEN;
+	SKIP(TK_LPAREN);
+	select_state->fir_expr = parse_expr();
+	SKIP(TK_RPAREN);
+	select_state->statement = parse_statement();
+	
+	if (select_kind == TK_IF && G_TK_KIND == TK_ELSE) {
+		select_state->sec_token = create_token_node();
+		NEXT_TOKEN;
+		select_state->sec_expr = parse_statement();
+	}
+	return select_state;
+}
+
+ast_node_t *parse_iteration_statement()
+{
+	iteration_statement_t *iter_state;
+
+	iter_state->fir_token = create_token_node();
+	
+	switch (G_TK_KIND) {
+	case TK_WHILE:
+		NEXT_TOKEN;
+		SKIP(TK_LPAREN);
+		iter_state->expr = parse_expr();
+		SKIP(TK_RPAREN);
+		iter_state->statement = parse_statement();
+		break;
+	case TK_DO:
+		NEXT_TOKEN;
+		iter_state->statement = parse_statement();
+		iter_state->sec_token = create_token_node();
+		NEXT_TOKEN;
+		SKIP(TK_LPAREN);
+		iter_state->expr = parse_expr();
+		SKIP(TK_RPAREN);
+		SKIP(TK_SEMICOLON);
+		break;
+	case TK_FOR:
+		NEXT_TOKEN;
+		SKIP(TK_LPAREN);
+		iter_state->expr_statement1 = parse_expr_statement();
+		iter_state->expr_statement2 = parse_expr_statement();
+		if (G_TK_KIND != TK_RPAREN) {
+			iter_state->expr = parse_expr();
+		}
+		SKIP(TK_LPAREN);
+		iter_state->statement = parse_statement();
+		break;
+	default:
+		error_message("invalid token");
+		break;
+	}
+	return iter_state;
+}
+
+ast_node_t *parse_jump_statement()
+{
+	jump_statement_t *jump_state;
+
+	jump_state->jmp_cmd = create_token_node();
+
+	switch (G_TK_KIND) {
+	case TK_GOTO:
+		NEXT_TOKEN;
+		jump_state->value = create_token_node();
+		NEXT_TOKEN;
+		break;
+	case TK_RETURN:
+		NEXT_TOKEN;
+		if (G_TK_KIND != TK_SEMICOLON) {
+			jump_state->value = parse_expr();
+		}
+		break;
+	case TK_CONTIUE:
+	case TK_BREAK:
+		NEXT_TOKEN;
+		break;
+	default:
+		error_message("invalid token");
+		break;
+	}
+	SKIP(TK_SEMICOLON);
+
+	return jump_state;
+}
+
+ast_node_t *parse_statement()
+{
+	statement_t* statement;
+
+	statement = (statement_t*)bcc_malloc(sizeof(statement_t));
+	statement->statement = statement->next = NULL;
+
+	switch (G_TK_KIND) {
+	case TK_IDENTIFIER:
+		
+	case TK_CASE:
+	case TK_DEFAULT:
+		statement->node_kind = LABELED_STATEMENT;
+		statement->statement = parse_labeled_statement();
+		break;
+	case TK_LBRACE:
+		statement->node_kind = COMPOUND_STATEMENT;
+		statement->statement = parse_compound_statement();
+		break;
+	case TK_IF:
+	case TK_SWITCH:
+		statement->node_kind = SELECT_STATEMENT;
+		statement->statement = parse_selection_statement();
+		break;
+	case TK_WHILE:
+	case TK_DO:
+	case TK_FOR:
+		statement->node_kind = ITERAT_STATEMENT;
+		statement->statement = parse_iteration_statement();
+		break;
+	case TK_GOTO:
+	case TK_CONTIUE:
+	case TK_BREAK:
+	case TK_RETURN:
+		statement->node_kind = JUMP_STATMENT;
+		statement->statement = parse_jump_statement();
+		break;
+	default:
+		error_message("invalid token");
+		break;
+	}
+}
+
+ast_node_t *parse_compound_statement()
+{
+	comp_state_t *comp_state;
+
+	if (G_TK_KIND != TK_LBRACE) {
+		error_message("unexpected token\n");
+	}
+	NEXT_TOKEN;			//skip '{'
+	if (is_decl_spec()) {
+		parse_declaration_list();
+	}
+	parse_statement_list();
+	NEXT_TOKEN;			//skip '}'
+}
+
 ast_node_t *parse_external_decl()
 {
 	declaration_t *decl;
@@ -1080,28 +1316,33 @@ ast_node_t *parse_external_decl()
 	decl_spec_t *decl_spec;
 	init_declarator_t *init_decl;
 
-	decl_spec = parse_decl_spec();
+	decl = func_def = decl_spec = init_decl = NULL;
+
+	if (is_decl_spec()) {
+		decl_spec = parse_decl_spec();
+	}
+
 	if (G_TK_KIND != TK_SEMICOLON) {
 		init_decl = parse_init_declarator_list();
 	}
-	if (init_decl->initializer != NULL) {
-		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
-		decl->decl_spec = decl_spec;
-		decl->init_decl = init_decl;
-		EXPECT(TK_SEMICOLON);
-	}
+
 	if (G_TK_KIND == TK_SEMICOLON) {
 		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		decl->decl_spec = decl_spec;
 		decl->init_decl = init_decl;
 		return decl;
-	} else (G_TK_KIND == TK_LBRACE) {
+	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec()) {
 		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		func_def->decl_spec_ptr = decl_spec;
-		func_def->decl_ptr = 
-	}
-	func_def->decl_spec_ptr = decl_spec;
-	func_def->decl_ptr = ((init_declarator_t *)decl->init_decl)->declarator;
-	func_def = parse_declaration_list();
+		func_def->decl_ptr = init_decl->declarator;
+		if (is_decl_spec()) {
+			func_def->decl_list_ptr = parse_declaration_list();
+			EXPECT(TK_LBRACE);
+		}
+		func_def->comp_state_ptr = parse_compound_statement();
 
+		return func_def->comp_state_ptr;
+	} else {
+		error_message("unexpected token");
+	}
 }

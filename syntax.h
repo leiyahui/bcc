@@ -313,7 +313,6 @@ typedef struct _expr_statement_t {
 
 
 typedef struct _labeled_statement_t {
-	int label_kind;
 	ast_node_t *token;
 	ast_node_t *const_expr_ptr;
 	ast_node_t *statement;
@@ -323,8 +322,9 @@ typedef struct _labeled_statement_t {
 typedef struct _select_statement_t {
 	ast_node_t *fir_token;
 	ast_node_t *sec_token;
-	ast_node_t *expr_ptr;
-	ast_node_t *statement_ptr;
+	ast_node_t *fir_expr;
+	ast_node_t *sec_expr;
+	ast_node_t *statement;
 }select_statement_t;
 
 typedef struct _iteration_statement_t {
@@ -352,6 +352,7 @@ typedef struct _jump_statement_t {
 typedef struct _statement_t {
 	int node_kind;
 	ast_node_t *statement;
+	ast_node_t *next;
 }statement_t;
 
 typedef struct _statement_list_t {
@@ -380,5 +381,10 @@ typedef struct _tdname_t {
 	char *name;
 	int level;
 }tdname_t;
+
+typedef struct _coordinate_t {
+	char *g_cursor;
+	int line;
+}coordinate_t;
 
 #endif

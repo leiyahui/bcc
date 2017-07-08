@@ -101,6 +101,7 @@ int hash_key_value(int key_value, int table_size)
 {
 	return key_value % table_size;
 }
+
 void init_hashtable(hashtable_t *hashtable, hashtable_t *parent)
 {
 	hashtable->ele_num = 0;

@@ -28,6 +28,7 @@
 #include "load_file.h"
 #include "hash.h"
 #include "lex.h"
+#include "symbol.h"
 #include "syntax.h"
 #include "output_message.h"
 
