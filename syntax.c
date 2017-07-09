@@ -147,11 +147,16 @@ BOOL is_typedef_name(char *name)
 
 #define SKIP(tk_kind)   if (G_TK_KIND != tk_kind) {			\
 							error_message("expect token kind is:%d", tk_kind);				\	
-						}									\
-						NEXT_TOKEN;
+}									\
+NEXT_TOKEN;
 
-#define SAVE_COORDINATE g_recorded_coord.g_cursor = G_CURSOR;	\
-						g_recorded_coord.line = G_LINE;
+#define SAVE_CURR_COORDINATE	g_recorded_coord.g_cursor = G_CURSOR;	\
+								g_recorded_coord.line = G_LINE;
+\
+
+#define BACK_TO_SAVED_COORDINATE	G_CURSOR = g_recorded_coord.g_cursor;	\
+									G_LINE	 = g_recorded_coord.line;
+										\
 
 ast_node_t *create_token_node()
 {
@@ -846,7 +851,7 @@ ast_node_t *parse_decl_spec()
 				error_message("repeated storage class specifier");
 			}
 			if (G_TK_KIND == TK_TYPEDEF) {
-				insert_td_table(g_current_token.token_value.ptr);
+				insert_to_scope(&(g_current_scope->tdname), g_current_token.token_value.ptr, TDNAME, 0);
 			}
 			break;
 		case TK_VOID:
@@ -1260,7 +1265,18 @@ ast_node_t *parse_statement()
 
 	switch (G_TK_KIND) {
 	case TK_IDENTIFIER:
-		
+		SAVE_CURR_COORDINATE;
+		NEXT_TOKEN;
+		if (G_TK_KIND == TK_COLON) {
+			BACK_TO_SAVED_COORDINATE;
+			statement->node_kind = LABELED_STATEMENT;
+			statement->statement = parse_labeled_statement();
+		} else {
+			BACK_TO_SAVED_COORDINATE;
+			statement->node_kind = EXPR_STATEMENT;
+			statement->statement = parse_expr_statement();
+		}
+		break;
 	case TK_CASE:
 	case TK_DEFAULT:
 		statement->node_kind = LABELED_STATEMENT;
@@ -1292,6 +1308,20 @@ ast_node_t *parse_statement()
 		error_message("invalid token");
 		break;
 	}
+	return statement;
+}
+
+ast_node_t *parse_statement_list()
+{
+	statement_t *statement_list ,*statement_iter;
+
+	statement_list = statement_iter = parse_statement();
+
+	while (G_TK_KIND != TK_LBRACE) {
+		statement_iter->next = parse_statement();
+		statement_iter = statement_iter->next;
+	}
+	return statement_list;
 }
 
 ast_node_t *parse_compound_statement()
@@ -1301,12 +1331,13 @@ ast_node_t *parse_compound_statement()
 	if (G_TK_KIND != TK_LBRACE) {
 		error_message("unexpected token\n");
 	}
-	NEXT_TOKEN;			//skip '{'
+	SKIP(TK_LBRACE);			
 	if (is_decl_spec()) {
-		parse_declaration_list();
+		comp_state->decl_list = parse_declaration_list();
 	}
-	parse_statement_list();
-	NEXT_TOKEN;			//skip '}'
+	comp_state->decl_list = parse_statement_list();
+	SKIP(TK_RBRACE);	
+	return comp_state;
 }
 
 ast_node_t *parse_external_decl()
