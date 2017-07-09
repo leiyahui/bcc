@@ -7,9 +7,11 @@
 #define TDNAME_SYM			5
 #define OTHER_IDET			6
 
+
 typedef struct _symbol_t {
 	int type;
 	char *str;
+	int defined;
 	symbol_t *next;
 }symbol_t;
 
@@ -30,19 +32,20 @@ typedef struct _scope_t {
 #define OTHER_IDENT		3
 #define TDNAME			4
 
-void insert_to_namespace(namespace_t *curr_namespace, char *str, int type)
+void insert_to_namespace(namespace_t *curr_namespace, char *str, int type, BOOL defined)
 {
 	symbol_t *new_sym;
 
 	new_sym = (symbol_t *)bcc_malloc(sizeof(symbol_t));
 	new_sym->str = str;
 	new_sym->type = type;
+	new_sym->defined = defined;
 	new_sym->next = curr_namespace->sym_list;
 
 	curr_namespace->sym_list = new_sym;
 }
 
-BOOL in_namespace(namespace_t *curr_namespace, char *str)
+BOOL is_in_namespace(namespace_t *curr_namespace, char *str)
 {
 	symbol_t *sys_iter;
 
@@ -57,7 +60,7 @@ BOOL in_namespace(namespace_t *curr_namespace, char *str)
 	return FALSE;
 }
 
-void insert_to_scope(scope_t *curr_scope, char *str, int kind)
+void insert_to_scope(scope_t *curr_scope, char *str, int kind, BOOL defined)
 {
 	namespace_t *curr_namespace;
 	switch (kind) {
@@ -74,7 +77,7 @@ void insert_to_scope(scope_t *curr_scope, char *str, int kind)
 		curr_namespace = &(curr_scope->tdname);
 		break;
 	}
-	insert_to_namespace(curr_namespace, str, kind);
+	insert_to_namespace(curr_namespace, str, kind, defined);
 }
 
 
