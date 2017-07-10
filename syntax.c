@@ -135,28 +135,26 @@ BOOL is_typedef_name(char *name)
 
 
 
-#define NEXT_TOKEN get_next_token();
+#define NEXT_TOKEN get_next_token();		
 
 #define G_TK_KIND	g_current_token.tk_kind
 #define G_TK_VALUE	g_current_token.token_value
 #define G_TK_LINE	g_current_token.line
 
-#define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {			\
-							error_message("expect token kind is:%d", tk_kind);				\	
-						}
+#define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {									\
+							error_message("expect token kind is:%d", tk_kind);		\
+						}					
 
-#define SKIP(tk_kind)   if (G_TK_KIND != tk_kind) {			\
-							error_message("expect token kind is:%d", tk_kind);				\	
-}									\
-NEXT_TOKEN;
+#define SKIP(tk_kind)   if (G_TK_KIND != tk_kind) {									\
+							error_message("expect token kind is:%d", tk_kind);		\
+						}															\
+						NEXT_TOKEN;						
 
-#define SAVE_CURR_COORDINATE	g_recorded_coord.g_cursor = G_CURSOR;	\
-								g_recorded_coord.line = G_LINE;
-\
+#define SAVE_CURR_COORDINATE	g_recorded_coord.g_cursor = G_CURSOR;				\
+								g_recorded_coord.line = G_LINE;			
 
-#define BACK_TO_SAVED_COORDINATE	G_CURSOR = g_recorded_coord.g_cursor;	\
-									G_LINE	 = g_recorded_coord.line;
-										\
+#define BACK_TO_SAVED_COORDINATE	G_CURSOR = g_recorded_coord.g_cursor;			\
+									G_LINE	 = g_recorded_coord.line;		
 
 ast_node_t *create_token_node()
 {
