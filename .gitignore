@@ -240,6 +240,10 @@ ModelManifest.xml
 
 bcc
 bcc_linux
+third_part
 
 # FAKE - F# Make
 .fake/
+/third_part/cunit/include/Automated.h
+/bcc/bcc/bcc.vcxproj.filters
+/bcc_linux/bcc_linux/*.vcxproj
