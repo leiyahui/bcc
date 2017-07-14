@@ -238,5 +238,8 @@ ModelManifest.xml
 # Paket dependency manager
 .paket/paket.exe
 
+bcc
+bcc_linux
+
 # FAKE - F# Make
 .fake/
