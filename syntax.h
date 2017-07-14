@@ -44,12 +44,8 @@ typedef struct _pointer_t {
 typedef struct _initializer_t {
 	ast_node_t *assign_expr;
 	ast_node_t *initialier_list;
-}initializer_t;
-
-typedef struct _initializer_list_t {
-	ast_node_t *initializer;
 	ast_node_t *next;
-}initializer_list_t;
+}initializer_t;
 
 typedef struct _assign_op_t {
 	ast_node_t *value;
@@ -208,19 +204,20 @@ typedef struct _direct_abstract_declarator_t {
 }direct_abstract_declarator_t;
 
 typedef struct _abstract_declarator_t {
-	pointer_t *poninter;
+	pointer_t *pointer;
 	direct_abstract_declarator_t *direct_abstract_declarator;
 }abstract_declarator_t;
 
 
 #define WITHOUT_DECL					0
 #define WITH_DECL						1
-#define WITH_ABSTRACT_DECL		2
+#define WITH_ABSTRACT_DECL				2
 
 typedef struct _param_declaration_t {
 	int decl_kind;
 	ast_node_t *decl_spec;
 	ast_node_t *decl;
+	ast_node_t *next;
 }param_declaration_t;
 
 typedef struct _param_list_t {
