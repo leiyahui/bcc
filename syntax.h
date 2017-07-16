@@ -190,17 +190,12 @@ typedef struct _type_name_t {
 	ast_node_t *abstract_declarator;
 }type_name_t;
 
-#define WITHOUT_DECL							0
-#define WITH_ABSTRACT_DECLTOR				1
-#define WITH_DIRECT_ABS_DECLTOR			2
-
 typedef struct _direct_abstract_declarator_t {
 	int decl_kind;
-	BOOL	with_const_expr;
-	BOOL	with_param_list;
 	ast_node_t *abs_decl;
 	ast_node_t *const_expr;
 	ast_node_t *param_list;
+	decl_postfix_t *post;
 }direct_abstract_declarator_t;
 
 typedef struct _abstract_declarator_t {
@@ -232,14 +227,18 @@ typedef struct _param_type_list_t {
 
 typedef struct _ident_list_t {
 	ast_node_t *ident;
-	ast_node_t *ident_list;
+	ast_node_t *next;
 }ident_list_t;
 
 #define CONST_EXPR	0
 #define PARAM_LIST	1
 #define IDENT_LIST	2
 
+
+#define PAREN		1
+#define BRACKET		2
 typedef struct _decl_postfix_t {
+	int paren_or_barcket;
 	ast_node_t *const_expr;
 	ast_node_t *param_list;
 	ast_node_t *ident_list;

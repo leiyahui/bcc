@@ -107,6 +107,11 @@ ast_node_t *parse_primary_expr()
 													postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
 													postfix->next = tmp_postfix;
 
+#define CREATE_DECL_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
+														postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
+														postfix->next = tmp_postfix;
+
+
 ast_node_t *parse_postfix()
 {
 	postfix_t *postfix, *tmp_postfix;
@@ -846,18 +851,23 @@ ast_node_t *parse_direct_abs_declarator()
 	if (G_TK_KIND == TK_LPAREN) {
 		NEXT_TOKEN;
 		if (is_decl_spec()) {
-			decl->with_param_list = TRUE;
 			decl->param_list = parse_param_type_list();
-		} else if (G_TK_KIND == TK_LPAREN || G_TK_KIND == TK_LBRACKET) {
+		} else if (G_TK_KIND == TK_POINTER 
+			|| G_TK_KIND == TK_LBRACKET
+			|| G_TK_KIND == TK_LPAREN) {
 			decl->abs_decl = parse_abs_declarator();
-			decl->decl_kind = WITH_ABSTRACT_DECL;
 		}
 		SKIP(TK_RPAREN);
 	} else if (G_TK_KIND == TK_LBRACKET) {
-		if (G_TK_KIND == TK_RBRACKET) {
-			NEXT_TOKEN;
+		if (G_TK_KIND != TK_RBRACKET) {
+			decl->const_expr = parse_const_expr();
 		}
+		SKIP(TK_RBRACKET);
+	} else {
+		error_message("invalid token");
 	}
+	decl->post = parse_decl_postfix();
+	return decl;
 }
 
 ast_node_t *parse_abs_declarator()
@@ -944,6 +954,22 @@ ast_node_t *parse_param_type_list()
 	return list;
 }
 
+ast_node_t *parse_ident_list()
+{
+	ident_list_t *ident_list, *ident_iter;
+
+	ident_list = ident_iter = (ident_list_t*)bcc_malloc(sizeof(ident_list_t));
+	ident_iter->ident = create_token_node();
+	ident_iter->next = NULL;
+
+	NEXT_TOKEN;
+	while (G_TK_KIND == TK_COMMA) {
+		ident_iter->next = (ident_list_t *)bcc_malloc(sizeof(ident_list_t));
+		ident_iter = ident_list->next;	
+	}
+	return ident_list;
+}
+
 ast_node_t *parse_decl_postfix()
 {
 	decl_postfix_t *decl_postfix, *tmp_decl_postfix;
@@ -953,7 +979,8 @@ ast_node_t *parse_decl_postfix()
 		switch (G_TK_KIND) {
 		case TK_LBRACKET:
 			NEXT_TOKEN;
-			CREATE_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
+			CREATE_DECL_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
+			decl_postfix->paren_or_barcket = BRACKET;
 			if (G_TK_KIND == TK_RBRACKET) {
 				decl_postfix->next = NULL;
 				break;
@@ -962,7 +989,8 @@ ast_node_t *parse_decl_postfix()
 			break;
 		case TK_LPAREN:
 			NEXT_TOKEN;
-			CREATE_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
+			CREATE_DECL_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
+			decl_postfix->paren_or_barcket = PAREN;
 			if (G_TK_KIND == TK_RPAREN) {
 				decl_postfix->next = NULL;
 			} else if (G_TK_KIND == TK_IDENTIFIER) {
