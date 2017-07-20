@@ -55,6 +55,7 @@ typedef struct _assign_expr_t {
 	ast_node_t *cond_expr;
 	ast_node_t *assign_op;
 	ast_node_t *assign_expr;
+	ast_node_t *next;
 }assign_expr_t;
 
 typedef struct _expr_t {
@@ -100,6 +101,11 @@ typedef struct _postfix_expr_t {
 #define UNARY_EXPR		1
 #define CAST_EXPR		2
 #define TYPE_NAME		3
+
+typedef struct _type_name_t {
+	ast_node_t *spec_qual_list;
+	ast_node_t *abs_decl;
+}type_name_t;
 
 typedef struct _unary_expr_t {
 	int expr_kind;
@@ -184,11 +190,6 @@ typedef struct _cond_expr_t {
 typedef struct _const_expr_t {
 	ast_node_t *cond_expr;
 }const_expr_t;
-
-typedef struct _type_name_t {
-	ast_node_t *spec_qual_list;
-	ast_node_t *abstract_declarator;
-}type_name_t;
 
 typedef struct _direct_abstract_declarator_t {
 	int decl_kind;

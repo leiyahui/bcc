@@ -182,6 +182,20 @@ ast_node_t *parse_postfix_expr()
 	return postfix_expr;
 }
 
+ast_node_t *parse_type_name()
+{
+	type_name_t *type_name;
+	
+	type_name = (type_name_t *)bcc_malloc(sizeof(type_name_t));
+	
+	type_name->spec_qual_list = parse_spec_qual_list();
+
+	if (G_TK_KIND != TK_RPAREN) {
+		type_name->abs_decl = parse_abs_declarator();
+	}
+	return type_name;
+}
+
 ast_node_t *parse_unary_expr()
 {
 	unary_expr_t *unary_expr;
@@ -452,7 +466,7 @@ ast_node_t *parse_assign_expr()
 
 	assign_expr = (assign_expr_t *)bcc_malloc(sizeof(assign_expr_t));
 	assign_expr->cond_expr = parse_cond_expr();
-	assign_expr->assign_expr = NULL;
+	assign_expr->assign_expr = assign_expr->next = NULL;
 
 	if (G_TK_KIND == TK_ASSIGN
 		|| G_TK_KIND == TK_ADD_ASSING
@@ -470,6 +484,20 @@ ast_node_t *parse_assign_expr()
 		assign_expr->assign_expr = parse_assign_expr();
 	}
 
+}
+
+ast_node_t *parse_argu_expr_list()
+{
+	assign_expr_t *list, *iter_list;
+
+	list = iter_list = parse_assign_expr();
+
+	while (G_TK_KIND == TK_COMMA) {
+		iter_list->next = parse_assign_expr();
+		iter_list = iter_list->next;
+	}
+
+	return list;
 }
 
 ast_node_t *parse_expr()
