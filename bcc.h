@@ -22,7 +22,7 @@
 #include <TestDB.h>
 #include <Basic.h>
 
-
+#include "type.h"
 #include "memory.h"
 #include "common.h"
 #include "load_file.h"
