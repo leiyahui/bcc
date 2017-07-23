@@ -8,6 +8,7 @@ type_t g_base_type[BASE_TYPE_NUM];
 			g_base_type[type].kind = type;			\
 			g_base_type[type].align = size;			\
 			g_base_type[type].size = size;			\
+			g_base_type[type].is_const = FALSE;		\
 			g_base_type[type].base_type = NULL;
 
 void init_base_type()

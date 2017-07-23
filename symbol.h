@@ -3,6 +3,10 @@
 
 #include "bcc.h"
 
+extern scope_t *g_curr_scope;
+
+#define G_SCOPE(a) = g_curr_scope->a
+
 #define STRUCT_SYM			1
 #define UNION_SYM			2
 #define ENUM_SYM			3
@@ -12,33 +16,41 @@
 
 
 typedef struct _symbol_t {
-	int type;
-	char *str;
-	int defined;
+	char *name;
+	type_t *type;
 	symbol_t *next;
 }symbol_t;
 
-typedef struct _namespace_t {
-	symbol_t *sym_list;
-}namespace_t;
+typedef struct _user_define_type_t {				// includeing tags, statement_labels, typedef name
+	char *name;
+	type_t *type;
+	BOOL has_declarator;				//user defined type may only define a type name,but declarator
+	struct _user_define_type_t *next;
+}user_define_type_t;
+
 
 #define STATE_LABLES	1
 #define TAGS			2
-#define OTHER_IDENT		3
+#define SYMBOL			3
 #define TDNAME			4
 
 typedef struct _scope_t {
-	namespace_t statement_lables;
-	namespace_t tags;
-	namespace_t other_ident;
-	namespace_t tdname;
+	user_define_type_t lables_head;
+	user_define_type_t *lables_tail;
+	user_define_type_t tags_head;
+	user_define_type_t *tags_tail;
+	user_define_type_t tdname_head;
+	user_define_type_t *tdname_tail;
+	symbol_t *sym_head;
+	symbol_t *sym_tail;
 	struct _scope_t *parent;
 }scope_t;
 
-void insert_to_namespace(namespace_t *curr_namespace, char *str, int type, BOOL defined);
+void init_g_scope();
 
-BOOL is_in_namespace(namespace_t *curr_namespace, char *str);
+void insert_to_user_define_type(user_define_type_t *space_tail, char *name, type_t *type, BOOL has_declarator);
 
-void insert_to_scope(scope_t *curr_scope, char *str, int kind, BOOL defined);
+BOOL in_curr_user_define_type(user_define_type_t *type_head, char* name);
 
+BOOL in_symbol_table(symbol_t *sym_head, char *name);
 #endif
