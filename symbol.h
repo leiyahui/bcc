@@ -5,7 +5,7 @@
 
 extern scope_t *g_curr_scope;
 
-#define G_SCOPE(a) = g_curr_scope->a
+#define G_SCOPE(v) = (g_curr_scope->v)
 
 #define STRUCT_SYM			1
 #define UNION_SYM			2
@@ -50,7 +50,7 @@ void init_g_scope();
 
 void insert_to_user_define_type(user_define_type_t *space_tail, char *name, type_t *type, BOOL has_declarator);
 
-BOOL in_curr_user_define_type(user_define_type_t *type_head, char* name);
+BOOL in_curr_user_define_type(user_define_type_t *type_head, char *name);
 
 BOOL in_symbol_table(symbol_t *sym_head, char *name);
 #endif

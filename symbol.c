@@ -2,8 +2,6 @@
 
 scope_t *g_curr_scope;
 
-#define G_SCOPE(a) = g_curr_scope->a
-
 void init_g_scope()
 {
 	g_curr_scope->lables_tail = &g_curr_scope->lables_head;

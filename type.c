@@ -4,12 +4,13 @@
 
 type_t g_base_type[BASE_TYPE_NUM];
 
-#define INIT_ONE_BASE_TYPE(type, size)				\
-			g_base_type[type].kind = type;			\
-			g_base_type[type].align = size;			\
-			g_base_type[type].size = size;			\
-			g_base_type[type].is_const = FALSE;		\
-			g_base_type[type].base_type = NULL;
+#define INIT_ONE_BASE_TYPE(type, size)						\
+			g_base_type[type].kind = type;					\
+			g_base_type[type].align = size;					\
+			g_base_type[type].size = size;					\
+			g_base_type[type].store_cls = AUTO_STORE_CLS	\
+			g_base_type[type].is_const = FALSE;				\
+			g_base_type[type].base_type = NULL
 
 void init_base_type()
 {
@@ -23,19 +24,19 @@ void init_base_type()
 	INIT_ONE_BASE_TYPE(TYPE_ARRAY, 0);
 }
 
-tag_t * create_tag(char * name, int struct_or_union)
+tag_type_t * create_tag(char * name, int struct_or_union)
 {
-	tag_t *type;
-	type = (tag_t *)bcc_malloc(sizeof(tag_t));
+	tag_type_t *type;
+	type = (tag_type_t *)bcc_malloc(sizeof(tag_type_t));
 	type->name = name;
 	type->type = struct_or_union;
 	type->head = type->tail = NULL;
 }
 
-void add_field_to_tag(tag_t *tag, type_t *type, char *name, int bits)
+void add_field_to_tag(tag_type_t *tag, type_t *type, char *name, int bits)
 {
-	field_t *field;
-	field = (field_t *)bcc_malloc(sizeof(field_t));
+	field_type_t *field;
+	field = (field_type_t *)bcc_malloc(sizeof(field_type_t));
 	
 	field->type = type;
 	field->name = name;
@@ -62,8 +63,8 @@ function_type_t* create_func_type(char * name, type_t * ret)
 
 void add_param_to_func(function_type_t *func, type_t *type, char *name)
 {
-	field_t * param;
-	param = (field_t * *)bcc_malloc(sizeof(field_t));
+	field_type_t * param;
+	param = (field_type_t * *)bcc_malloc(sizeof(field_type_t));
 	
 	param->name = name;
 	param->type = type;
@@ -75,4 +76,14 @@ void add_param_to_func(function_type_t *func, type_t *type, char *name)
 		func->tail->next = param;
 		func->tail = param;
 	}
+}
+
+td_type_t * create_td_type(char * name, type_t * type)
+{
+	td_type_t *td;
+	
+	td->name = name;
+	td->type = type;
+
+	return td;
 }

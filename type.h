@@ -8,9 +8,15 @@ enum {
 	TYPE_STRUCT, TYPE_UNION,TYPE_ENUM,TYPE_FUNCTION
 	};
 
+#define EXTERN_STORE_CLS	1
+#define STATIC_STORE_CLS	2
+#define AUTO_STORE_CLS		3
+#define REGISTER_STORE_CLS	4
+
 
 typedef struct _type_t {
 	BOOL is_const;
+	int store_cls;
 	int kind;
 	int size;
 	int align;
@@ -20,26 +26,31 @@ typedef struct _type_t {
 typedef struct _base_data_type_t {
 	type_t type;
 	char *name;
-}base_data_type;
+}base_data_type_t;
 
-typedef struct _field_t {
+typedef struct _field_type_t {
 	type_t* type;
 	char *name;
 	int bits;
-	struct _field_t *next;
-}field_t;
+	struct _field_type_t *next;
+}field_type_t;
 
-typedef struct _tag_t {
+typedef struct _tag_type_t {
 	int type;
 	char *name;
-	field_t *head;
-	field_t *tail;
-}tag_t;
+	field_type_t *head;
+	field_type_t *tail;
+}tag_type_t;
 
 typedef struct _enum_t {
 	type_t type;
 	char *name;
 }enum_t;
+
+typedef struct _td_type_t {
+	type_t *type;
+	type_t *name;
+}td_type_t;
 
 typedef struct _param_type_t {
 	type_t *type;
@@ -50,20 +61,22 @@ typedef struct _param_type_t {
 typedef struct _function_type_t {
 	type_t *ret;
 	char *name;
-	field_t *head;
-	field_t *tail;
+	field_type_t *head;
+	field_type_t *tail;
 }function_type_t;
 
 /*func*/
 
 void init_base_type();
 
-tag_t* create_tag(char *name, int struct_or_union);
+tag_type_t* create_tag(char *name, int struct_or_union);
 
-void add_field_to_tag(tag_t *tag, type_t *type, char *name, int bits);
+void add_field_to_tag(tag_type_t *tag, type_t *type, char *name, int bits);
 
-function_type_t* create_func_type(char *name, type_t *ret);
+function_type_t* create_func_type(char *name, type_t *ret_type);
 
 void add_param_to_func(function_type_t *func, type_t *type, char *name);
+
+td_type_t *create_td_type(char *name, type_t *type);
 
 #endif

@@ -4,8 +4,7 @@
 hashtable_t  g_external_symbol_table;
 coordinate_t g_recorded_coord;
 
-scope_t g_file_scope;
-scope_t *g_current_scope;
+
 
 BOOL is_typedef_name(char *name)
 {
@@ -15,22 +14,24 @@ BOOL is_typedef_name(char *name)
 
 	level = 0;
 	typedefed = FALSE;
-	scope = g_current_scope;
+	scope = g_curr_scope;
 	while (scope != NULL) {
 		level++;
-		if (is_in_namespace(&scope->tdname, name)) {
+		if (in_curr_user_define_type(&(scope->tdname_head), name)) {
 			typedefed = TRUE;
 			break;
 		}
 		scope = scope->parent;
 	}
 	if (typedefed == TRUE) {
-		scope = g_current_scope;
+		scope = g_curr_scope;
 		while (level > 1) {
-			if (is_in_namespace(&(scope->other_ident), name)) {
+			if (in_curr_user_define_type(&(scope->sym_head), name)) {
 				typedefed = FALSE;
 				break;
 			}
+			level--;
+			scope = scope->parent;
 		}
 	}
 	return typedefed;
@@ -784,9 +785,6 @@ ast_node_t *parse_decl_spec()
 			} else {
 				error_message("repeated storage class specifier");
 			}
-			if (G_TK_KIND == TK_TYPEDEF) {
-				insert_to_scope(&(g_current_scope->tdname), g_current_token.token_value.ptr, TDNAME, 0);
-			}
 			break;
 		case TK_VOID:
 		case TK_CHAR:
@@ -1141,6 +1139,10 @@ ast_node_t *parse_declaration()
 
 	if (G_TK_KIND != TK_SEMICOLON) {
 		decl->init_decl = parse_init_declarator_list();
+	}
+
+	if (((store_cls_spec_t*)((decl_spec_t*)decl->decl_spec)->store_cls)->value->tk_val.tk_kind == TK_TYPEDEF) {
+		decl->init_decl
 	}
 	NEXT_TOKEN;
 	return decl;
