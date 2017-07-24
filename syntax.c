@@ -1055,15 +1055,61 @@ ast_node_t *parse_direct_declarator()
 	return direct_decl;
 }
 
+ast_node_t *parse_qual_list()
+{
+	int had_const, had_volatile;
+
+	type_qual_t *type_qual_ptr = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+
+	had_volatile = had_const = FALSE;
+	while (G_TK_KIND == TK_VOLATILE || G_TK_KIND == TK_CONST) {
+		if (type_qual_ptr == NULL) {
+			type_qual_ptr = bcc_malloc(sizeof(type_qual_t));
+		}
+		if (G_TK_KIND == TK_CONST) {
+			if (had_const == TRUE) {
+				error_message("repeated const");
+			}
+			had_const = TRUE;
+			type_qual_ptr->const_tk = create_token_node();
+		}
+		if (G_TK_KIND == TK_VOLATILE) {
+			if (had_volatile == TRUE) {
+				error_message("repeated const");
+			}
+			had_volatile = TRUE;
+			type_qual_ptr->volatile_tk = create_token_node();
+		}
+		NEXT_TOKEN;
+	}
+
+	return type_qual_ptr;
+}
+
+ast_node_t *parse_pointer()
+{
+	pointer_t *pointer = NULL;
+
+	if (G_TK_KIND == TK_MULTIPLY) {
+		pointer = (pointer_t *)bcc_malloc(sizeof(pointer_t));
+		pointer->type_qual_ptr = pointer->next = NULL;
+
+		pointer->value = create_token_node();
+		NEXT_TOKEN;
+		
+		pointer->type_qual_ptr = parse_qual_list();
+		pointer->next = parse_pointer();
+	}
+}
+
 ast_node_t *parse_declarator()
 {
 	declarator_t *decl;
 
 	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
+	decl->pointer = decl->direct_declarator = NULL;
 
-	if (G_TK_KIND == TK_MULTIPLY) {
-		decl->pointer = create_token_node();
-	}
+	decl->pointer = parse_pointer();
 	decl->direct_declarator = parse_direct_declarator();
 	return decl;
 }

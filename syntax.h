@@ -37,8 +37,9 @@ typedef struct _spec_qual_list_t {
 }spec_qual_list_t;
 
 typedef struct _pointer_t {
+	ast_node_t *value;
 	ast_node_t *type_qual_ptr;
-	ast_node_t *point_next;
+	ast_node_t *next;
 }pointer_t;
 
 typedef struct _initializer_t {
