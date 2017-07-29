@@ -16,6 +16,7 @@ typedef struct _input_file_t {
 	int fd;
 #endif
 	int line;
+	int colum;
 	int size;
 }input_file_t;
 
@@ -23,6 +24,7 @@ extern input_file_t g_input_file;
 
 #define G_CURSOR	g_input_file.cursor
 #define G_LINE		g_input_file.line
+#define G_COLUM		g_input_file.colum
 
 void load_file(char *file_name);
 

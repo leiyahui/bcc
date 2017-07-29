@@ -2,6 +2,9 @@
 #define _SYNTAX_H
 #include "bcc.h"
 
+#define NODE_TOKEN_KIND(node)	node->tk_val.tk_kind
+#define NODE_TOKEN_VALUE(node)	node->tk_val.token_value
+
 typedef union _ast_node_t {
 	token_t tk_val;
 }ast_node_t;
@@ -31,10 +34,6 @@ typedef struct _decl_spec_t {
 	ast_node_t	*type_qual;
 }decl_spec_t;
 
-typedef struct _spec_qual_list_t {
-	ast_node_t *type_sepc;
-	ast_node_t *type_qual;
-}spec_qual_list_t;
 
 typedef struct _pointer_t {
 	ast_node_t *value;
@@ -57,12 +56,14 @@ typedef struct _assign_expr_t {
 	ast_node_t *assign_op;
 	ast_node_t *assign_expr;
 	ast_node_t *next;
+	double value;
 }assign_expr_t;
 
 typedef struct _expr_t {
 	ast_node_t *assign_expr;
 	ast_node_t *op;
 	ast_node_t *expr;
+	double value;
 }expr_t;
 
 #define PRI_EXPR_TOKEN	0
@@ -71,6 +72,7 @@ typedef struct _expr_t {
 typedef struct _primary_expr_t {
 	int kind;
 	ast_node_t *expr;
+	double value;
 }primary_expr_t;
 
 typedef struct _argu_expr_list_t {
@@ -91,6 +93,7 @@ typedef struct _postfix_t {
 	ast_node_t *op;
 	ast_node_t *ident;
 	ast_node_t *next;
+	double value;
 }postfix_t;
 
 typedef struct _postfix_expr_t {
@@ -120,65 +123,11 @@ typedef struct _cast_expr_t {
 	ast_node_t *type_name;
 }cast_expr_t;
 
-typedef struct _multi_expr_t {
-	ast_node_t *cast_expr;
+typedef struct _binary_expr_t {
+	ast_node_t *op1;
 	ast_node_t *next;
 	ast_node_t *op;
-}multi_expr_t;
-
-typedef struct _addit_expr_t {
-	ast_node_t *multi_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}addit_expr_t;
-
-typedef struct _shift_expr_t {
-	ast_node_t *addit_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}shift_expr_t;
-
-typedef struct _rela_expr_t {
-	ast_node_t *shift_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}rela_expr_t;
-
-typedef struct _equal_expr_t {
-	ast_node_t *rela_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}equal_expr_t;
-
-typedef struct _and_expr_t {
-	ast_node_t *equal_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}and_expr_t;
-
-typedef struct _exclusive_or_expr_t {
-	ast_node_t *and_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}exclusive_or_expr_t;
-
-typedef struct _inclusive_or_expr_t {
-	ast_node_t *exclu_or_expr;
-	ast_node_t *next;
-	ast_node_t *op;
-}inclusive_or_expr_t;
-
-typedef struct _logic_and_expr_t {
-	ast_node_t *inclusive_or_expr;
-	ast_node_t *logic_and_expr;
-	ast_node_t *op;
-}logic_and_expr_t;
-
-typedef struct _logic_or_expr_t {
-	ast_node_t *logic_or_expr;
-	ast_node_t *logic_and_expr;
-	ast_node_t *op;
-}logic_or_expr_t;
+}binary_expr_t;
 
 typedef struct _cond_expr_t {
 	ast_node_t *logic_or_expr;
@@ -190,37 +139,8 @@ typedef struct _cond_expr_t {
 
 typedef struct _const_expr_t {
 	ast_node_t *cond_expr;
+	double value;			//if constant expr is all number, it's calculated when parse
 }const_expr_t;
-
-typedef struct _direct_abstract_declarator_t {
-	int decl_kind;
-	ast_node_t *abs_decl;
-	ast_node_t *const_expr;
-	ast_node_t *param_list;
-	decl_postfix_t *post;
-}direct_abstract_declarator_t;
-
-typedef struct _abstract_declarator_t {
-	pointer_t *pointer;
-	direct_abstract_declarator_t *direct_abstract_declarator;
-}abstract_declarator_t;
-
-
-#define WITHOUT_DECL					0
-#define WITH_DECL						1
-#define WITH_ABSTRACT_DECL				2
-
-typedef struct _param_declaration_t {
-	int decl_kind;
-	ast_node_t *decl_spec;
-	ast_node_t *decl;
-	ast_node_t *next;
-}param_declaration_t;
-
-typedef struct _param_list_t {
-	ast_node_t *param_declaration;
-	ast_node_t *param_list;
-}param_list_t;
 
 typedef struct _param_type_list_t {
 	ast_node_t *param_list;
@@ -231,11 +151,6 @@ typedef struct _ident_list_t {
 	ast_node_t *ident;
 	ast_node_t *next;
 }ident_list_t;
-
-#define CONST_EXPR	0
-#define PARAM_LIST	1
-#define IDENT_LIST	2
-
 
 #define PAREN		1
 #define BRACKET		2
@@ -248,35 +163,48 @@ typedef struct _decl_postfix_t {
 }decl_postfix_t;
 
 typedef struct _direct_declarator_t {
-	BOOL is_ident;
+	BOOL is_abs_decl;
 	ast_node_t *ident;
 	ast_node_t *decl;
-	ast_node_t *post_fix;
+	decl_postfix_t *post;
 }direct_declarator_t;
 
+
+#define DECLARATOR			1 << 1
+#define INIT_DECLARATOR		1 << 2
+#define STRUCT_DECLARATOR	1 << 3
+#define ABS_DECLARATOIR		1 << 4
+
 typedef struct _declarator_t {
+	int kind;
 	ast_node_t *pointer;
 	ast_node_t *direct_declarator;
+	ast_node_t *const_expr;
+	ast_node_t *initializer;
+	ast_node_t *next;
 }declarator_t;
 
-typedef struct _struct_declarator_t {
-	ast_node_t *declarator;
-	ast_node_t *const_expr;
-	ast_node_t *op;
-	ast_node_t *next;
-}struct_declarator_t;
+#define DECLARATION			1 << 1
+#define STRUCT_DECLARATION	1 << 2
+#define PARAM_DECLARATION	1 << 3
 
-typedef struct _struct_declaration_t {
-	ast_node_t *spec_qual;
-	ast_node_t *struct_decl;
+typedef struct _declaration_t {
+	int kind;
+	ast_node_t *decl_spec;
+	ast_node_t *declarator_list;
 	ast_node_t *next;
-}struct_declaration_t;
+}declaration_t;
+
 
 typedef struct _struct_or_union_spec_t {
 	ast_node_t *s_or_u;
 	ast_node_t *ident;
 	ast_node_t *struct_decl;
 }struct_or_union_spec_t;
+
+#define CONST_EXPR	0
+#define PARAM_LIST	1
+#define IDENT_LIST	2
 
 typedef struct _enumerator_t {
 	ast_node_t *ident;
@@ -291,31 +219,15 @@ typedef struct _enum_spec_t {
 	ast_node_t *enum_decl;
 }enum_spec_t;
 
-typedef struct _init_declarator_t
-{
-	ast_node_t *declarator;
-	ast_node_t *initializer;
-	ast_node_t *op;
-	ast_node_t *next_decl;
-}init_declarator_t;
-
-typedef struct _declaration_t {
-	ast_node_t *decl_spec;
-	ast_node_t *init_decl;
-	ast_node_t *next;
-}declaration_t;
-
 typedef struct _expr_statement_t {
 	ast_node_t *expr;
 }expr_statement_t;
-
 
 typedef struct _labeled_statement_t {
 	ast_node_t *token;
 	ast_node_t *const_expr_ptr;
 	ast_node_t *statement;
 }labeled_statement_t;
-
 
 typedef struct _select_statement_t {
 	ast_node_t *fir_token;
@@ -383,6 +295,7 @@ typedef struct _tdname_t {
 typedef struct _coordinate_t {
 	char *g_cursor;
 	int line;
+	int colum;
 }coordinate_t;
 
 #endif

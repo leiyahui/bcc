@@ -9,7 +9,7 @@ type_t g_base_type[BASE_TYPE_NUM];
 			g_base_type[type].align = size;					\
 			g_base_type[type].size = size;					\
 			g_base_type[type].store_cls = AUTO_STORE_CLS	\
-			g_base_type[type].is_const = FALSE;				\
+			g_base_type[type].qual = 0;				\
 			g_base_type[type].base_type = NULL
 
 void init_base_type()
@@ -86,4 +86,81 @@ td_type_t * create_td_type(char * name, type_t * type)
 	td->type = type;
 
 	return td;
+}
+
+
+
+type_t * get_postfix_declarator_type(decl_postfix_t * decl_postfix)
+{
+	type_t *type;
+	int array_len;
+	type = (type_t *)bcc_malloc(sizeof(type_t));
+	
+	if (decl_postfix->paren_or_barcket == BRACKET) {
+		type->kind = TYPE_ARRAY;
+		type->align = type->size = ((const_expr_t *)decl_postfix->const_expr)->value;
+	} else if (decl_postfix->paren_or_barcket == PAREN) {
+		type->kind = TYPE_PARAMETER;
+		type->param_type = 
+	}
+	return NULL;
+}
+
+type_t * get_declarator_type(declarator_t * decl)
+{
+	return NULL;
+}
+
+type_t * get_struct_declarator_type(struct_declarator_t * decl)
+{
+	return NULL;
+}
+
+type_t * get_struct_union_type(type_spec_t *type_spec)
+{
+	struct_or_union_spec_t *tag;
+	struct_declaration_t *decl;
+
+	tag_type_t *tag_type;
+	
+	tag = (struct_or_union_spec_t *)(type_spec->value);
+	tag_type = create_tag(tag->ident, type_spec->kind);
+	
+	decl = tag->struct_decl;
+	decl
+
+}
+
+type_t *get_decl_spec_type(decl_spec_t *spec)
+{
+	type_qual_t *type_qual;
+	type_spec_t *type_spec;
+	store_cls_spec_t *store_cls;
+	int store_cls_tk;
+	int type_spec_tk;
+
+	type_t *type;
+	type = (type_t *)bcc_malloc(sizeof(type_t));
+
+	type_qual = spec->type_qual;
+	type_spec = spec->type_spec;
+	store_cls = spec->store_cls;
+
+	//if (store_cls) {
+	//	type->store_cls = NODE_TOKEN_KIND(store_cls->value);
+	//}
+	//if (type_qual) {
+	//	if (type_qual->const_tk != NULL) {
+	//		type->qual |= WITH_CONST;
+	//	}
+	//	if (type_qual->volatile_tk != NULL) {
+	//		type->qual |= WITH_VOLATILE;
+	//	}
+	//}
+	if (type_spec) {
+		switch (NODE_TOKEN_KIND(type_spec->value)) {
+		case TK_STRUCT:
+			tag_type_t *tag = create_tag()
+		}
+	}
 }
