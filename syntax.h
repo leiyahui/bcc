@@ -144,7 +144,7 @@ typedef struct _const_expr_t {
 
 typedef struct _param_type_list_t {
 	ast_node_t *param_list;
-	ast_node_t *ellipsis;
+	BOOL with_ellipse;
 }param_type_list_t;
 
 typedef struct _ident_list_t {

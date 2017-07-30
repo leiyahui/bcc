@@ -813,22 +813,17 @@ ast_node_t *parse_direct_abs_declarator()
 	decl->is_abs_decl = TRUE;
 
 	if (G_TK_KIND == TK_LPAREN) {
+		SAVE_CURR_COORDINATE;
 		NEXT_TOKEN;
-		if (is_decl_spec()) {
-			decl-> = parse_param_type_list();
-		} else if (G_TK_KIND == TK_POINTER 
+		if (! is_decl_spec() 
+			&& (G_TK_KIND == TK_POINTER 
 			|| G_TK_KIND == TK_LBRACKET
-			|| G_TK_KIND == TK_LPAREN) {
-			decl->abs_decl = parse_abs_declarator();
+			|| G_TK_KIND == TK_LPAREN)) {
+			decl->decl = parse_abs_declarator();
+			SKIP(TK_RPAREN);
+		} else {
+			BACK_TO_SAVED_COORDINATE;
 		}
-		SKIP(TK_RPAREN);
-	} else if (G_TK_KIND == TK_LBRACKET) {
-		if (G_TK_KIND != TK_RBRACKET) {
-			decl->const_expr = parse_const_expr();
-		}
-		SKIP(TK_RBRACKET);
-	} else {
-		output("invalid token");
 	}
 	decl->post = parse_decl_postfix();
 	return decl;
@@ -836,17 +831,22 @@ ast_node_t *parse_direct_abs_declarator()
 
 ast_node_t *parse_abs_declarator()
 {
-	abstract_declarator_t *decl;
+	declarator_t *decl;
 
-	decl = (abstract_declarator_t *)bcc_malloc(sizeof(abstract_declarator_t));
+	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
 	if (G_TK_KIND == TK_POINTER) {
-		decl->pointer = create_token_node();
+		decl->pointer = parse_pointer();
 		NEXT_TOKEN;
 	}
-	decl->direct_abstract_declarator = parse_direct_abs_declarator();
-
+	if (G_TK_KIND == TK_LPAREN
+		|| G_TK_KIND == TK_LBRACKET)
+		decl->direct_declarator = parse_direct_abs_declarator();
 	return decl;
 }
+
+#define WITHOUT_DECL		1 << 0
+#define WITH_DECL			1 << 1
+#define WITH_ABSTRACT_DECL	1 << 2
 
 int decl_type()
 {
@@ -870,28 +870,27 @@ int decl_type()
 
 ast_node_t *parse_param_declaration()
 {
-	param_declaration_t *param_decl;
+	declaration_t *param_decl;
 	int type;
 
-	param_decl = (param_declaration_t *)bcc_malloc(sizeof(param_declaration_t));
-	param_decl->decl = param_decl->next = NULL;
+	param_decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
+	param_decl->decl_spec = param_decl->declarator_list = param_decl->next = NULL;
 
 	param_decl->decl_spec = parse_decl_spec();
 	SAVE_CURR_COORDINATE;
 	type = decl_type();
 	BACK_TO_SAVED_COORDINATE;
 	if (type == WITH_DECL) {
-		param_decl->decl = parse_declarator();
+		param_decl->declarator_list = parse_declarator();
 	} else if (type == WITH_ABSTRACT_DECL) {
-		param_decl->decl = parse_abs_declarator();
+		param_decl->declarator_list = parse_abs_declarator();
 	}
-	param_decl->decl_kind = type;
 	return param_decl;
 }
 
 ast_node_t *parse_param_list()
 {
-	param_declaration_t *param_list, *param_iter;
+	declaration_t *param_list, *param_iter;
 
 	param_iter = param_list = parse_param_declaration();
 	while (G_TK_KIND == TK_COMMA) {
@@ -912,7 +911,7 @@ ast_node_t *parse_param_type_list()
 	list = (param_type_list_t *)bcc_malloc(sizeof(param_type_list_t));
 	list->param_list = parse_param_list();
 	if (G_TK_KIND == TK_ELLIPSE) {
-		list->ellipsis = create_token_node();
+		list->with_ellipse = TRUE;
 		NEXT_TOKEN;
 	}
 	return list;
@@ -984,7 +983,7 @@ ast_node_t *parse_direct_declarator()
 		direct_decl->decl = parse_declarator();
 		NEXT_TOKEN;
 	} else {
-		output("invalid direct declarator");
+		ERROR("invalid direct declarator%d", G_TK_KIND);
 	}
 	direct_decl->post = parse_decl_postfix();
 
@@ -1083,29 +1082,27 @@ ast_node_t *parse_initializer()
 
 ast_node_t *parse_init_declarator()
 {
-	init_declarator_t *init_decl;
+	declarator_t *decl;
 
-	init_decl = (init_declarator_t *)bcc_malloc(sizeof(init_declarator_t));
-	init_decl->declarator = parse_declarator();
-	init_decl->op = init_decl->next_decl = NULL;
+	
+	decl = parse_declarator();
 
 	if (G_TK_KIND == TK_ASSIGN) {
-		init_decl->op = create_token_node();
 		NEXT_TOKEN;
-		init_decl->initializer = parse_initializer();
+		decl->initializer = parse_initializer();
 	}
 	return init_decl;
 }
 
 ast_node_t *parse_init_declarator_list()
 {
-	init_declarator_t *list, *list_iter;
+	declarator_t *list, *list_iter;
 
 	list = list_iter = parse_init_declarator();
 	while (G_TK_KIND == TK_COMMA) {
 		NEXT_TOKEN;
-		list_iter->next_decl = parse_init_declarator_list();
-		list_iter = list_iter->next_decl;
+		list_iter->next = parse_init_declarator_list();
+		list_iter = list_iter->next;
 	}
 	return list;
 }
@@ -1117,11 +1114,11 @@ ast_node_t *parse_declaration()
 	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 
 	decl->decl_spec = parse_decl_spec();
-	decl->init_decl = NULL;
+	decl->declarator_list = NULL;
 	decl->next = NULL;
 
 	if (G_TK_KIND != TK_SEMICOLON) {
-		decl->init_decl = parse_init_declarator_list();
+		decl->declarator_list = parse_init_declarator_list();
 	}
 
 	NEXT_TOKEN;
