@@ -1261,9 +1261,9 @@ ast_node_t *parse_compound_statement()
 ast_node_t *parse_external_decl()
 {
 	declaration_t *decl;
+	declarator_t *declarator;
 	func_def_t *func_def;
 	decl_spec_t *decl_spec;
-	init_declarator_t *init_decl;
 
 	decl = func_def = decl_spec = init_decl = NULL;
 
@@ -1272,18 +1272,18 @@ ast_node_t *parse_external_decl()
 	}
 
 	if (G_TK_KIND != TK_SEMICOLON) {
-		init_decl = parse_init_declarator_list();
+		declarator = parse_init_declarator_list();
 	}
 
 	if (G_TK_KIND == TK_SEMICOLON) {
 		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		decl->decl_spec = decl_spec;
-		decl->init_decl = init_decl;
+		decl->declarator_list = declarator;
 		return decl;
 	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec()) {
 		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		func_def->decl_spec_ptr = decl_spec;
-		func_def->decl_ptr = init_decl->declarator;
+		func_def->decl_ptr = declarator;
 		if (is_decl_spec()) {
 			func_def->decl_list_ptr = parse_declaration_list();
 			EXPECT(TK_LBRACE);
