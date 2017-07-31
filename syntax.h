@@ -114,7 +114,8 @@ typedef struct _type_name_t {
 typedef struct _unary_expr_t {
 	int expr_kind;
 	ast_node_t *expr;
-	ast_node_t *op;
+	ast_node_t *cast_type;
+	int op;
 }unary_expr_t;
 
 typedef struct _cast_expr_t {
@@ -125,8 +126,8 @@ typedef struct _cast_expr_t {
 
 typedef struct _binary_expr_t {
 	ast_node_t *op1;
-	ast_node_t *next;
-	ast_node_t *op;
+	ast_node_t *op2;
+	int op;
 }binary_expr_t;
 
 typedef struct _cond_expr_t {

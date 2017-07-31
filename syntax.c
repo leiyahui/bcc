@@ -217,7 +217,7 @@ ast_node_t *parse_type_name()
 	
 	type_name = (type_name_t *)bcc_malloc(sizeof(type_name_t));
 	
-	type_name->spec_qual_list = parse_spec_qual_list();
+	type_name->spec_qual_list = parse_decl_spec();
 
 	if (G_TK_KIND != TK_RPAREN) {
 		type_name->abs_decl = parse_abs_declarator();
@@ -234,24 +234,31 @@ ast_node_t *parse_unary_expr()
 	switch (G_TK_KIND) {
 	case TK_INC:
 	case TK_DEC:
-		expr_kind = UNARY_EXPR;
-		strncpy(&unary_expr->op->tk_val, &g_current_token, sizeof(token_t));
-		NEXT_TOKEN;
-		unary_expr->expr = parse_unary_expr();
-		break;
 	case TK_MOD:
 	case TK_MULTIPLY:
 	case TK_ADD:
 	case TK_SUB:
 	case TK_BITREVERT:
 	case TK_NOT:
-		expr_kind = CAST_EXPR;
-		strncpy(&unary_expr->op->tk_val, &g_current_token, sizeof(token_t));
+		expr_kind = UNARY_EXPR;
+		unary_expr->op = G_TK_KIND;
 		NEXT_TOKEN;
-		unary_expr->expr = parse_cast_expr();
+		unary_expr->expr = parse_unary_expr();
 		break;
+	case TK_LPAREN:
+		SAVE_CURR_COORDINATE;
+		NEXT_TOKEN;
+		if (is_decl_spec()) {
+			expr_kind = CAST_EXPR;
+			unary_expr->cast_type = parse_type_name();
+			unary_expr->expr = parse_unary_expr();
+		} else {
+			expr_kind = POSTFIX_EXPR;
+			BACK_TO_SAVED_COORDINATE;
+			unary_expr->expr_kind = parse_postfix_expr();
+		}
 	case TK_SIZEOF:
-		strncpy(&unary_expr->op->tk_val, &g_current_token, sizeof(token_t));
+		unary_expr->op = G_TK_KIND;
 		NEXT_TOKEN;
 		if (G_TK_KIND == TK_LPAREN) {
 			expr_kind = TYPE_NAME;
@@ -270,198 +277,67 @@ ast_node_t *parse_unary_expr()
 	return unary_expr;
 }
 
-ast_node_t *parse_cast_expr()
+int get_binary_op_prec(int tk) {
+
+	switch (tk) {
+	case TK_OR:
+		return 1;
+	case TK_AND:
+		return 2;
+	case TK_BITOR:
+		return 3;
+	case TK_BITXOR:
+		return 4;
+	case TK_BITAND:
+		return 5;
+	case TK_NEQUAL:
+	case TK_EQUAL:
+		return 6;
+	case TK_LESS:
+	case TK_LESS_EQUAL:
+	case TK_GREAT:
+	case TK_GREAT_EQUAL:
+		return 7;
+	case TK_LSHIFT:
+	case TK_RSHIFT:
+		return 8;
+	case TK_ADD:
+	case TK_SUB:
+		return 9;
+	case TK_MULTIPLY:
+	case TK_DIVIDE:
+	case TK_MOD:
+		return 10;
+	default:
+		return 0;
+	}
+}
+
+ast_node_t *parse_binary_expr(int prev_prec)
 {
+	binary_expr_t *binary_expr;
 	cast_expr_t *cast_expr;
+	int curr_prec;
 
-	cast_expr = (cast_expr_t *)bcc_malloc(sizeof(cast_expr_t));
-
-	if (G_TK_KIND == TK_LPAREN) {
-		cast_expr->is_unary_expr = FALSE;
-		cast_expr->type_name = parse_type_name();
-		NEXT_TOKEN;
-		cast_expr->expr = parse_cast_expr();
-	} else {
-		cast_expr->is_unary_expr = TRUE;
-		cast_expr->expr = parse_unary_expr();
+	cast_expr = parse_unary_expr();
+	curr_prec = get_binary_op_prec(G_TK_KIND);
+	while (curr_prec >= prev_prec) {
+		binary_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
+		binary_expr->op1 = cast_expr;
+		binary_expr->op = G_TK_KIND;
+		binary_expr->op2 = parse_binary_expr(curr_prec + 1);
+		cast_expr = binary_expr;
 	}
 	return cast_expr;
 }
 
-ast_node_t *parse_mutli_expr()
-{
-	binary_expr_t *multi_expr;
-
-	multi_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	
-	multi_expr->op1 = parse_cast_expr();
-	multi_expr->next = NULL;
-	if (G_TK_KIND == TK_MULTIPLY
-		|| G_TK_KIND == TK_DIVIDE
-		|| G_TK_KIND == TK_MOD) {
-		multi_expr->op = create_token_node();
-		NEXT_TOKEN;
-		multi_expr->next = parse_mutli_expr();
-	}
-	return multi_expr;
-}
-
-ast_node_t *parse_addit_expr()
-{
-	binary_expr_t *addit_expr;
-
-	addit_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	addit_expr->op1 = parse_mutli_expr();
-	addit_expr->next = NULL;
-
-	if (G_TK_KIND == TK_ADD
-		|| G_TK_KIND == TK_SUB) {
-		addit_expr->op = create_token_node();
-		NEXT_TOKEN;
-		addit_expr->next = parse_addit_expr();
-	}
-	return addit_expr;
-}
-
-ast_node_t *parse_shift_expr()
-{
-	binary_expr_t *shift_expr;
-	
-	shift_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	shift_expr->op1 = parse_addit_expr();
-	shift_expr->next = NULL;
-
-	if (G_TK_KIND == TK_LSHIFT
-		|| G_TK_KIND == TK_RSHIFT) {
-		shift_expr->op = create_token_node();
-		NEXT_TOKEN;
-		shift_expr->next = parse_shift_expr();
-	}
-	return shift_expr;
-}
-
-ast_node_t *parse_rela_expr()
-{
-	binary_expr_t *rela_expr;
-	
-	rela_expr = (binary_expr_t*)bcc_malloc(sizeof(binary_expr_t));
-	rela_expr->op1 = parse_shift_expr();
-	rela_expr->next = NULL;
-
-	if (G_TK_KIND == TK_LESS
-		|| G_TK_KIND == TK_LESS_EQUAL
-		|| G_TK_KIND == TK_GREAT
-		|| G_TK_KIND == TK_GREAT_EQUAL) {
-		rela_expr->op = create_token_node();
-		NEXT_TOKEN;
-		rela_expr->next = parse_rela_expr();
-	}
-
-}
-
-ast_node_t *parse_equal_expr()
-{
-	binary_expr_t *equal_expr;
-
-	equal_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	equal_expr->op1 = parse_rela_expr();
-	equal_expr->next = NULL;
-
-	if (G_TK_KIND == TK_EQUAL
-		|| G_TK_KIND == TK_NEQUAL) {
-		equal_expr->op = create_token_node();
-		NEXT_TOKEN;
-		equal_expr->next = parse_equal_expr();
-	}
-	return equal_expr;
-}
-
-ast_node_t *parse_and_expr()
-{
-	binary_expr_t *and_expr;
-
-	and_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	and_expr->op1 = parse_equal_expr();
-	and_expr->next = NULL;
-
-	if (G_TK_KIND == TK_BITAND) {
-		and_expr->op = create_token_node();
-		NEXT_TOKEN;
-		and_expr->next = parse_and_expr();
-	}
-	return and_expr;
-}
-
-ast_node_t *parse_excl_or_expr()
-{
-	binary_expr_t *excl_or_expr;
-
-	excl_or_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	excl_or_expr->op1 = parse_and_expr();
-	excl_or_expr->next = NULL;
-
-	if (G_TK_KIND == TK_BITXOR) {
-		excl_or_expr->op = create_token_node();
-		NEXT_TOKEN;
-		excl_or_expr->next = parse_excl_or_expr();
-	}
-	return excl_or_expr;
-}
-
-ast_node_t *parse_incl_or_expr()
-{
-	binary_expr_t *incl_or_expr;
-
-	incl_or_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	incl_or_expr->op1 = parse_excl_or_expr();
-	incl_or_expr->next = NULL;
-
-	if (G_TK_KIND == TK_BITOR) {
-		incl_or_expr->op = create_token_node();
-		NEXT_TOKEN;
-		incl_or_expr->next = parse_incl_or_expr();
-	}
-	return incl_or_expr;
-}
-
-ast_node_t *parse_logic_and_expr()
-{
-	binary_expr_t *logic_and_expr;
-
-	logic_and_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	logic_and_expr->op1 = parse_incl_or_expr();
-	logic_and_expr->next = NULL;
-
-	if (G_TK_KIND == TK_AND) {
-		logic_and_expr->op = create_token_node();
-		NEXT_TOKEN;
-		logic_and_expr->next = parse_logic_and_expr();
-	}
-	return logic_and_expr;
-}
-
-ast_node_t *parse_logic_or_expr()
-{
-	binary_expr_t *logic_or_expr;
-
-	logic_or_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-	logic_or_expr->next = parse_logic_and_expr();
-	logic_or_expr->op1 = NULL;
-
-	if (G_TK_KIND == TK_OR) {
-		logic_or_expr->op = create_token_node();
-		NEXT_TOKEN;
-		logic_or_expr->op1 = parse_logic_or_expr();
-	}
-	return logic_or_expr;
-}
 
 ast_node_t *parse_cond_expr()
 {
 	cond_expr_t *cond_expr;
 
 	cond_expr = (cond_expr_t *)bcc_malloc(sizeof(cond_expr_t));
-	cond_expr->logic_or_expr = parse_logic_or_expr();
+	cond_expr->logic_or_expr = parse_binary_expr(0);
 	cond_expr->expr = cond_expr->cond_expr = NULL;
 
 	if (G_TK_KIND == TK_QUESTION) {
@@ -1091,7 +967,7 @@ ast_node_t *parse_init_declarator()
 		NEXT_TOKEN;
 		decl->initializer = parse_initializer();
 	}
-	return init_decl;
+	return decl;
 }
 
 ast_node_t *parse_init_declarator_list()
