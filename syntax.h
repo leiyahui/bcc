@@ -283,6 +283,14 @@ typedef struct _func_def_t {
 	ast_node_t *comp_state_ptr;
 }func_def_t;
 
+#define DECLARATION			1
+#define FUNC_DEFINATION		2
+
+typedef struct _external_declaration_t {
+	int kind;
+	func_def_t *func;
+	declaration_t *decl;
+}external_declaration_t;
 
 ast_node_t *parse_enum();
 ast_node_t *parse_struct_union();

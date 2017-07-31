@@ -1260,12 +1260,14 @@ ast_node_t *parse_compound_statement()
 
 ast_node_t *parse_external_decl()
 {
+	external_declaration_t *external_decl;
 	declaration_t *decl;
 	declarator_t *declarator;
 	func_def_t *func_def;
 	decl_spec_t *decl_spec;
+	
 
-	decl = func_def = decl_spec = init_decl = NULL;
+	decl = func_def = decl_spec = declarator = NULL;
 
 	if (is_decl_spec()) {
 		decl_spec = parse_decl_spec();
@@ -1279,7 +1281,8 @@ ast_node_t *parse_external_decl()
 		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		decl->decl_spec = decl_spec;
 		decl->declarator_list = declarator;
-		return decl;
+		external_decl->decl = decl;
+		external_decl->kind = DECLARATION;
 	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec()) {
 		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		func_def->decl_spec_ptr = decl_spec;
@@ -1290,8 +1293,10 @@ ast_node_t *parse_external_decl()
 		}
 		func_def->comp_state_ptr = parse_compound_statement();
 
-		return func_def->comp_state_ptr;
+		external_decl->func = func_def;
+		external_decl->kind = FUNC_DEFINATION;
 	} else {
 		output("unexpected token");
 	}
+	return external_decl;
 }
