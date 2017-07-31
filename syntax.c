@@ -137,11 +137,11 @@ ast_node_t *parse_primary_expr()
 
 #define CREATE_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
 													postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
-													postfix->next = tmp_postfix;
+													postfix->next = tmp_postfix
 
 #define CREATE_DECL_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
 														postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
-														postfix->next = tmp_postfix;
+														postfix->next = tmp_postfix
 
 
 ast_node_t *parse_postfix()
@@ -167,7 +167,7 @@ ast_node_t *parse_postfix()
 			NEXT_TOKEN;
 			kind = FUNC_POSTFIX;
 			
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix)
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
 			if (G_TK_KIND == TK_RPAREN) {
 				postfix->expr = NULL;
 				break;
@@ -178,8 +178,8 @@ ast_node_t *parse_postfix()
 		case TK_POINTER:
 			kind = STRCTURE_POSTFIX;
 
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix)
-			postfix->op = create_token_node();
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
+			postfix->op = G_TK_KIND;
 			NEXT_TOKEN;
 			postfix->ident = create_token_node();
 			break;
@@ -187,8 +187,8 @@ ast_node_t *parse_postfix()
 		case TK_DEC:
 			kind = INC_DEC_POSTFIX;
 
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix)
-			postfix->op = create_token_node;
+			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
+			postfix->op = G_TK_KIND;
 			break;
 		default:
 			return postfix;
@@ -217,7 +217,7 @@ ast_node_t *parse_type_name()
 	
 	type_name = (type_name_t *)bcc_malloc(sizeof(type_name_t));
 	
-	type_name->spec_qual_list = parse_decl_spec();
+	type_name->spec_qual_list = parse_decl_spec(FALSE);
 
 	if (G_TK_KIND != TK_RPAREN) {
 		type_name->abs_decl = parse_abs_declarator();
@@ -316,19 +316,19 @@ int get_binary_op_prec(int tk) {
 ast_node_t *parse_binary_expr(int prev_prec)
 {
 	binary_expr_t *binary_expr;
-	cast_expr_t *cast_expr;
+	unary_expr_t *unary_expr;
 	int curr_prec;
 
-	cast_expr = parse_unary_expr();
+	unary_expr = parse_unary_expr();
 	curr_prec = get_binary_op_prec(G_TK_KIND);
 	while (curr_prec >= prev_prec) {
 		binary_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-		binary_expr->op1 = cast_expr;
+		binary_expr->op1 = unary_expr;
 		binary_expr->op = G_TK_KIND;
 		binary_expr->op2 = parse_binary_expr(curr_prec + 1);
-		cast_expr = binary_expr;
+		unary_expr = binary_expr;
 	}
-	return cast_expr;
+	return unary_expr;
 }
 
 
@@ -341,13 +341,11 @@ ast_node_t *parse_cond_expr()
 	cond_expr->expr = cond_expr->cond_expr = NULL;
 
 	if (G_TK_KIND == TK_QUESTION) {
-		cond_expr->que_op = create_token_node();
 		NEXT_TOKEN;
 		cond_expr->expr = parse_expr();
 		if (G_TK_KIND != TK_COLON) {
 			ERROR("expect: :");
 		}
-		cond_expr->colon_op = create_token_node();
 		NEXT_TOKEN;
 		cond_expr->cond_expr = parse_cond_expr();
 	}
@@ -411,12 +409,11 @@ ast_node_t *parse_expr()
 	
 	expr = (expr_t *)bcc_malloc(sizeof(expr_t));
 	expr->assign_expr = parse_assign_expr();
-	expr->expr = NULL;
+	expr->next = NULL;
 
 	if (G_TK_KIND == TK_COMMA) {
-		expr->op = create_token_node();
 		NEXT_TOKEN;
-		expr->expr = parse_expr();
+		expr->next = parse_expr();
 	}
 	return expr;
 }
@@ -474,7 +471,7 @@ ast_node_t *parse_struct_declaration()
 	declaration_t *struct_decl;
 
 	struct_decl = (declaration_t * *)bcc_malloc(sizeof(declaration_t));
-	struct_decl->decl_spec = parse_decl_spec ();
+	struct_decl->decl_spec = parse_decl_spec(FALSE);
 	struct_decl->declarator_list = parse_struct_declarator_list();
 	struct_decl->next = NULL;
 
@@ -500,7 +497,7 @@ ast_node_t *parse_struct_union()
 	struct_or_union_spec_t *struct_union;
 
 	struct_union = (struct_or_union_spec_t*)bcc_malloc(sizeof(struct_or_union_spec_t));
-	struct_union->s_or_u = create_token_node();
+	struct_union->s_or_u = G_TK_KIND;
 
 	NEXT_TOKEN;
 	if (G_TK_KIND == TK_LBRACE) {
@@ -529,7 +526,6 @@ ast_node_t *parse_enumerator()
 	enumerator->ident = create_token_node();
 	NEXT_TOKEN;
 	if (G_TK_KIND == TK_ASSIGN) {
-		enumerator->op = create_token_node();
 		NEXT_TOKEN;
 		enumerator->const_expr = parse_const_expr();
 	}
@@ -555,8 +551,7 @@ ast_node_t *parse_enum()
 	enum_spec_t *enum_spec;
 	enum_spec = (enum_spec_t*)bcc_malloc(sizeof(enumerator_t));
 
-	enum_spec->enum_keyword = create_token_node();
-	NEXT_TOKEN;
+	SKIP(TK_ENUM);
 	if (G_TK_KIND = TK_LBRACE) {
 		NEXT_TOKEN;
 		enum_spec->enum_decl = parse_enumerator_list();
@@ -574,7 +569,7 @@ ast_node_t *parse_enum()
 	}
 }
 
-ast_node_t *parse_decl_spec()
+ast_node_t *parse_decl_spec(int with_store_cls)
 {	
 	decl_spec_t *decl_spec = NULL;
 	store_cls_spec_t *store_cls;
@@ -593,6 +588,9 @@ ast_node_t *parse_decl_spec()
 		case TK_STATIC:
 		case TK_AUTO:
 		case TK_REGISTER:
+			if (!with_store_cls) {
+				ERROR("unexpected store class");
+			}
 			if (store_cls == NULL) {
 				store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(store_cls_spec_t));
 				store_cls->value = create_token_node();
@@ -752,7 +750,7 @@ ast_node_t *parse_param_declaration()
 	param_decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 	param_decl->decl_spec = param_decl->declarator_list = param_decl->next = NULL;
 
-	param_decl->decl_spec = parse_decl_spec();
+	param_decl->decl_spec = parse_decl_spec(TRUE);
 	SAVE_CURR_COORDINATE;
 	type = decl_type();
 	BACK_TO_SAVED_COORDINATE;
@@ -989,7 +987,7 @@ ast_node_t *parse_declaration()
 
 	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 
-	decl->decl_spec = parse_decl_spec();
+	decl->decl_spec = parse_decl_spec(TRUE);
 	decl->declarator_list = NULL;
 	decl->next = NULL;
 
@@ -1054,7 +1052,7 @@ ast_node_t *parse_labeled_statement()
 		SKIP(TK_COLON);
 		break;
 	case TK_CASE:
-		labeled_state->const_expr_ptr = parse_const_expr();
+		labeled_state->const_expr = parse_const_expr();
 		SKIP(TK_COLON);
 		break;
 	default:
@@ -1084,7 +1082,6 @@ ast_node_t *parse_selection_statement()
 
 	select_state = (select_statement_t *)bcc_malloc(sizeof(select_statement_t));
 	
-	select_state->fir_token = create_token_node();
 	select_kind = G_TK_KIND;
 
 	NEXT_TOKEN;
@@ -1094,10 +1091,11 @@ ast_node_t *parse_selection_statement()
 	select_state->statement = parse_statement();
 	
 	if (select_kind == TK_IF && G_TK_KIND == TK_ELSE) {
-		select_state->sec_token = create_token_node();
+		select_kind = G_TK_KIND;
 		NEXT_TOKEN;
 		select_state->sec_expr = parse_statement();
 	}
+	select_state->kind = select_kind;
 	return select_state;
 }
 
@@ -1105,7 +1103,7 @@ ast_node_t *parse_iteration_statement()
 {
 	iteration_statement_t *iter_state;
 
-	iter_state->fir_token = create_token_node();
+	iter_state->kind = G_TK_KIND;
 	
 	switch (G_TK_KIND) {
 	case TK_WHILE:
@@ -1118,7 +1116,6 @@ ast_node_t *parse_iteration_statement()
 	case TK_DO:
 		NEXT_TOKEN;
 		iter_state->statement = parse_statement();
-		iter_state->sec_token = create_token_node();
 		NEXT_TOKEN;
 		SKIP(TK_LPAREN);
 		iter_state->expr = parse_expr();
@@ -1147,7 +1144,7 @@ ast_node_t *parse_jump_statement()
 {
 	jump_statement_t *jump_state;
 
-	jump_state->jmp_cmd = create_token_node();
+	jump_state->kind = G_TK_KIND;
 
 	switch (G_TK_KIND) {
 	case TK_GOTO:
@@ -1269,7 +1266,7 @@ ast_node_t *parse_external_decl()
 	decl = func_def = decl_spec = declarator = NULL;
 
 	if (is_decl_spec()) {
-		decl_spec = parse_decl_spec();
+		decl_spec = parse_decl_spec(TRUE);
 	}
 
 	if (G_TK_KIND != TK_SEMICOLON) {
@@ -1284,10 +1281,10 @@ ast_node_t *parse_external_decl()
 		external_decl->kind = DECLARATION;
 	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec()) {
 		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
-		func_def->decl_spec_ptr = decl_spec;
-		func_def->decl_ptr = declarator;
+		func_def->decl_spec = decl_spec;
+		func_def->decl = declarator;
 		if (is_decl_spec()) {
-			func_def->decl_list_ptr = parse_declaration_list();
+			func_def->decl_list = parse_declaration_list();
 			EXPECT(TK_LBRACE);
 		}
 		func_def->comp_state_ptr = parse_compound_statement();
