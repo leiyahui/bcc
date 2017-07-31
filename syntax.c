@@ -742,6 +742,9 @@ ast_node_t *parse_param_declaration()
 	param_decl->decl_spec = param_decl->declarator_list = param_decl->next = NULL;
 
 	param_decl->decl_spec = parse_decl_spec(TRUE);
+	if (param_decl->decl_spec->store_cls.kind == TK_TYPEDEF) {
+		ERROR("invalid store class in param declaration");
+	}
 	SAVE_CURR_COORDINATE;
 	type = decl_type();
 	BACK_TO_SAVED_COORDINATE;
@@ -893,13 +896,16 @@ ast_node_t *parse_pointer()
 	if (G_TK_KIND == TK_MULTIPLY) {
 		pointer = (pointer_t *)bcc_malloc(sizeof(pointer_t));
 		pointer->type_qual_ptr = pointer->next = NULL;
+		pointer->pointer_num = 0;
+		while (G_TK_KIND == TK_MULTIPLY) {
+			pointer->pointer_num++;
+			NEXT_TOKEN;
+		}
 
-		pointer->value = create_token_node();
-		NEXT_TOKEN;
-		
 		pointer->type_qual_ptr = parse_qual_list();
 		pointer->next = parse_pointer();
 	}
+	return pointer;
 }
 
 ast_node_t *parse_declarator()
@@ -979,16 +985,12 @@ ast_node_t *parse_declaration()
 	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 
 	decl->decl_spec = parse_decl_spec(TRUE);
-	if (decl->decl_spec->store_cls.kind == TK_TYPEDEF) {
-
-	}
 	decl->declarator_list = NULL;
 	decl->next = NULL;
 
 	if (G_TK_KIND != TK_SEMICOLON) {
 		decl->declarator_list = parse_init_declarator_list();
 	}
-
 	NEXT_TOKEN;
 	return decl;
 }

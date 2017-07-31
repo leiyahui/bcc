@@ -37,7 +37,7 @@ typedef struct _decl_spec_t {
 
 
 typedef struct _pointer_t {
-	ast_node_t *value;
+	int pointer_num;
 	type_qual_t *type_qual_ptr;
 	struct _pointer_t *next;
 }pointer_t;
