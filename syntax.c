@@ -53,11 +53,11 @@ BOOL is_typedef_name(char *name)
 #define TK_VALUE_PTR(tk)		= tk.ptr
 
 #define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {									\
-							ERROR("expect token kind is:%d", tk_kind);		\
+							ERROR("expect token is:%d", tk_kind);		\
 						}					
 
 #define SKIP(tk_kind)   if (G_TK_KIND != tk_kind) {									\
-							ERROR("expect token kind is:%d", tk_kind);		\
+							ERROR("expect token is:%d", tk_kind);		\
 						}															\
 						NEXT_TOKEN;						
 
@@ -516,7 +516,7 @@ ast_node_t *parse_struct_union()
 			NEXT_TOKEN;
 		}
 	} else {
-		ERROR("invalid token");
+		ERROR("expect '{' or identifier");
 	}
 	return struct_union;
 }
@@ -570,7 +570,7 @@ ast_node_t *parse_enum()
 			NEXT_TOKEN;
 		}
 	} else {
-		output("invalid token\n");
+		ERROR("expect '{' or identifier");
 	}
 }
 
@@ -597,7 +597,7 @@ ast_node_t *parse_decl_spec()
 				store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(store_cls_spec_t));
 				store_cls->value = create_token_node();
 			} else {
-				output("repeated storage class specifier");
+				ERROR("repeated storage class specifier");
 			}
 			break;
 		case TK_VOID:
@@ -615,7 +615,7 @@ ast_node_t *parse_decl_spec()
 				type_spec->value = create_token_node();
 			}
 			else {
-				output("repeated type specifier");
+				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_STRUCT:
@@ -626,7 +626,7 @@ ast_node_t *parse_decl_spec()
 				type_spec->value = parse_struct_union();
 			}
 			else {
-				output("repeated type specifier");
+				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_ENUM:
@@ -636,7 +636,7 @@ ast_node_t *parse_decl_spec()
 				type_spec->value = parse_enum();
 			}
 			else {
-				output("repeated type specifier");
+				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_IDENTIFIER:
@@ -646,7 +646,7 @@ ast_node_t *parse_decl_spec()
 					type_spec->kind = TYPE_SPEC_TYPEDEF;
 					type_spec->value = create_token_node();
 				} else {
-					output("repeated type specifier");
+					ERROR("repeated type specifier");
 				}
 			} else {
 				invalid_decl_spec = TRUE;
@@ -879,14 +879,14 @@ ast_node_t *parse_qual_list()
 		}
 		if (G_TK_KIND == TK_CONST) {
 			if (had_const == TRUE) {
-				output("repeated const");
+				ERROR("repeated const");
 			}
 			had_const = TRUE;
 			type_qual_ptr->const_tk = create_token_node();
 		}
 		if (G_TK_KIND == TK_VOLATILE) {
 			if (had_volatile == TRUE) {
-				output("repeated const");
+				ERROR("repeated volatile");
 			}
 			had_volatile = TRUE;
 			type_qual_ptr->volatile_tk = create_token_node();
@@ -1058,7 +1058,7 @@ ast_node_t *parse_labeled_statement()
 		SKIP(TK_COLON);
 		break;
 	default:
-		output("invalid token\n");
+		ERROR("expeect identifier, 'default', 'case'");
 	}
 	labeled_state->statement = parse_statement();
 
@@ -1137,7 +1137,7 @@ ast_node_t *parse_iteration_statement()
 		iter_state->statement = parse_statement();
 		break;
 	default:
-		output("invalid token");
+		ERROR("expect 'while', 'do', 'for'");
 		break;
 	}
 	return iter_state;
@@ -1166,7 +1166,7 @@ ast_node_t *parse_jump_statement()
 		NEXT_TOKEN;
 		break;
 	default:
-		output("invalid token");
+		ERROR("expect 'goto', 'return', 'continue', 'break'");
 		break;
 	}
 	SKIP(TK_SEMICOLON);
@@ -1223,8 +1223,7 @@ ast_node_t *parse_statement()
 		statement->statement = parse_jump_statement();
 		break;
 	default:
-		output("invalid token");
-		break;
+		parse_expr_statement();
 	}
 	return statement;
 }
@@ -1247,7 +1246,7 @@ ast_node_t *parse_compound_statement()
 	comp_state_t *comp_state;
 
 	if (G_TK_KIND != TK_LBRACE) {
-		output("unexpected token\n");
+		ERROR("expect '{'");
 	}
 	SKIP(TK_LBRACE);			
 	if (is_decl_spec()) {
@@ -1296,7 +1295,7 @@ ast_node_t *parse_external_decl()
 		external_decl->func = func_def;
 		external_decl->kind = FUNC_DEFINATION;
 	} else {
-		output("unexpected token");
+		ERROR("unexpected token");
 	}
 	return external_decl;
 }
