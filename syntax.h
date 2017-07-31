@@ -10,7 +10,7 @@ typedef union _ast_node_t {
 }ast_node_t;
 
 typedef struct _store_cls_spec_t {
-	ast_node_t *value;
+	int kind;
 }store_cls_spec_t;
 
 #define TYPE_SPEC_BASIC_TYPE	1
@@ -20,18 +20,19 @@ typedef struct _store_cls_spec_t {
 
 typedef struct _type_spec_t {
 	int kind;
+	int sign;
 	ast_node_t *value;
 }type_spec_t;
 
 typedef struct _type_qual_t {
-	ast_node_t *const_tk;
-	ast_node_t *volatile_tk;
+	int with_const;
+	int with_volatile;
 }type_qual_t;
 
 typedef struct _decl_spec_t {
-	ast_node_t	*store_cls;
-	ast_node_t	*type_spec;
-	ast_node_t	*type_qual;
+	store_cls_spec_t	store_cls;
+	type_spec_t	type_spec;
+	type_qual_t	type_qual;
 }decl_spec_t;
 
 

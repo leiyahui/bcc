@@ -572,13 +572,9 @@ ast_node_t *parse_enum()
 ast_node_t *parse_decl_spec(int with_store_cls)
 {	
 	decl_spec_t *decl_spec = NULL;
-	store_cls_spec_t *store_cls;
-	type_spec_t *type_spec;
-	type_qual_t *type_qual;
 	BOOL invalid_decl_spec;
 
 	decl_spec = (decl_spec_t *)bcc_malloc(sizeof(decl_spec_t));
-	store_cls = type_qual = type_spec = NULL;
 
 	invalid_decl_spec = FALSE;
 	while (1) {
@@ -591,9 +587,8 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			if (!with_store_cls) {
 				ERROR("unexpected store class");
 			}
-			if (store_cls == NULL) {
-				store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(store_cls_spec_t));
-				store_cls->value = create_token_node();
+			if (decl_spec->store_cls.kind == 0) {
+				decl_spec->store_cls.kind = G_TK_KIND;
 			} else {
 				ERROR("repeated storage class specifier");
 			}
@@ -605,44 +600,41 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 		case TK_LONG:
 		case TK_FLOAT:
 		case TK_DOUBLE:
-		case TK_SIGNED:
-		case TK_UNSIGNED:
-			if (type_spec == NULL) {
-				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
-				type_spec->kind = TYPE_SPEC_BASIC_TYPE;
-				type_spec->value = create_token_node();
-			}
-			else {
+			if (decl_spec->type_spec.kind = 0) {
+				decl_spec->type_spec.kind = G_TK_KIND;
+			} else {
 				ERROR("repeated type specifier");
 			}
 			break;
+		case TK_SIGNED:
+		case TK_UNSIGNED:
+			if (decl_spec->type_spec.sign = 0) {
+				decl_spec->type_spec.sign = G_TK_KIND;
+			} else {
+				ERROR("repeated type specifier ");
+			}
 		case TK_STRUCT:
 		case TK_UNION:
-			if (type_spec == NULL) {
-				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
-				type_spec->kind = TYPE_SPEC_STRUCT_UNION;
-				type_spec->value = parse_struct_union();
-			}
-			else {
+			if (decl_spec->type_spec.kind = 0) {
+				decl_spec->type_spec.kind = G_TK_KIND;
+				decl_spec->type_spec.value = parse_struct_union();
+			} else {
 				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_ENUM:
-			if (type_spec == NULL) {
-				type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
-				type_spec->kind = TYPE_SPEC_ENUM_SPEC;
-				type_spec->value = parse_enum();
-			}
-			else {
+			if (decl_spec->type_spec.kind = 0) {
+				decl_spec->type_spec.kind = G_TK_KIND;
+				decl_spec->type_spec.value = parse_enum();
+			} else {
 				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_IDENTIFIER:
 			if (is_typedef_name(g_current_token.token_value.ptr)) {
-				if (type_spec == NULL) {
-					type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
-					type_spec->kind = TYPE_SPEC_TYPEDEF;
-					type_spec->value = create_token_node();
+				if (decl_spec->type_spec.kind = 0) {
+					decl_spec->type_spec.kind = TK_IDENTIFIER;
+					decl_spec->type_spec.value = create_token_node();
 				} else {
 					ERROR("repeated type specifier");
 				}
@@ -651,15 +643,17 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			}
 			break;
 		case TK_CONST:
-			if (type_qual == NULL) {
-				type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
-				type_qual->const_tk = create_token_node();
+			if (decl_spec->type_qual.with_const == 0) {
+				decl_spec->type_qual.with_const = TRUE;
+			} else {
+				ERROR("repeated const");
 			}
 			break;
 		case TK_VOLATILE:
-			if (type_qual == NULL) {
-				type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
-				type_qual->volatile_tk = create_token_node();
+			if (decl_spec->type_qual.with_volatile == 0) {
+				decl_spec->type_qual.with_volatile = TRUE;
+			} else {
+				ERROR("repeated const");
 			}
 			break;
 		default:
@@ -671,9 +665,6 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 		}
 		NEXT_TOKEN;
 	}
-	decl_spec->store_cls = store_cls;
-	decl_spec->type_spec = type_spec;
-	decl_spec->type_qual = type_qual;
 	
 	return decl_spec;
 }
@@ -880,18 +871,18 @@ ast_node_t *parse_qual_list()
 				ERROR("repeated const");
 			}
 			had_const = TRUE;
-			type_qual_ptr->const_tk = create_token_node();
 		}
 		if (G_TK_KIND == TK_VOLATILE) {
 			if (had_volatile == TRUE) {
 				ERROR("repeated volatile");
 			}
 			had_volatile = TRUE;
-			type_qual_ptr->volatile_tk = create_token_node();
 		}
 		NEXT_TOKEN;
 	}
 
+	type_qual_ptr->with_const = had_const;
+	type_qual_ptr->with_volatile = had_volatile;
 	return type_qual_ptr;
 }
 
@@ -988,6 +979,9 @@ ast_node_t *parse_declaration()
 	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 
 	decl->decl_spec = parse_decl_spec(TRUE);
+	if (decl->decl_spec->store_cls.kind == TK_TYPEDEF) {
+
+	}
 	decl->declarator_list = NULL;
 	decl->next = NULL;
 
