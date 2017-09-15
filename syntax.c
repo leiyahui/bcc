@@ -45,12 +45,12 @@ BOOL is_typedef_name(char *name)
 #define G_TK_VALUE	g_current_token.token_value
 #define G_TK_LINE	g_current_token.line
 
-#define TK_VALUE_INT(tk)		= (tk).int_num
+#define TK_VALUE_INT(tk)	= (tk).int_num
 #define TK_VALUE_SHORT(tk)	= tk.short_num
 #define TK_VALUE_LONG(tk)	= tk.long_num
 #define TK_VALUE_FLOAT(tk)	= tk.float_num
 #define TK_VALUE_DOUBLE(tk)	= tk.double_num
-#define TK_VALUE_PTR(tk)		= tk.ptr
+#define TK_VALUE_PTR(tk)	= tk.ptr
 
 #define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {									\
 							ERROR("expect token is:%d", tk_kind);		\
@@ -84,18 +84,19 @@ ast_node_t *parse_primary_expr()
 	primary_expr_t *pri_expr;
 
 	pri_expr = (primary_expr_t *)bcc_malloc(sizeof(primary_expr_t));
-	pri_expr->kind = PRI_EXPR_TOKEN;
+	pri_expr->kind = PRI_TOKEN;
+	pri_expr->compile_evaluated = FALSE;
 
 	switch (G_TK_KIND) {
 	case TK_IDENTIFIER:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = 0;
 		NEXT_TOKEN;
 		break;
 	case TK_INTCONST:
 	case TK_UNSIGNED_INTCONST:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = TK_VALUE_INT(G_TK_KIND);
+		pri_expr->compile_evaluated = TRUE;
+		pri_expr->value = TK_VALUE_INT(G_TK_VALUE);
 		NEXT_TOKEN;
 		break;
 	case TK_LONGCONST:
@@ -103,29 +104,33 @@ ast_node_t *parse_primary_expr()
 	case TK_LLONGCONST:
 	case TK_UNSIGNED_LLONGCONST:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = TK_VALUE_LONG(G_TK_KIND);
+		pri_expr->compile_evaluated = TRUE;
+		pri_expr->value = TK_VALUE_LONG(G_TK_VALUE);
 		NEXT_TOKEN;
 		break;
 	case TK_FLOATCONST:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = TK_VALUE_FLOAT(G_TK_KIND);
+		pri_expr->compile_evaluated = TRUE;
+		pri_expr->value = TK_VALUE_FLOAT(G_TK_VALUE);
 		NEXT_TOKEN;
 		break;
 	case TK_DOUBLECONST:
 	case TK_LDOUBLECONST:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = TK_VALUE_DOUBLE(G_TK_KIND);
+		pri_expr->compile_evaluated = TRUE;
+		pri_expr->value = TK_VALUE_DOUBLE(G_TK_VALUE);
 		NEXT_TOKEN;
 		break;
 	case TK_STRING:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = TK_VALUE_PTR(G_TK_KIND);
+		pri_expr->value = TK_VALUE_PTR(G_TK_VALUE);
 		NEXT_TOKEN;
 		break;
 	case TK_LPAREN:
-		pri_expr->kind = PRI_EXPR_EXPR;
+		pri_expr->kind = PRI_EXPR;
 		SKIP(TK_LPAREN)
 		pri_expr->expr = parse_expr();
+		pri_expr->compile_evaluated = pri_expr->expr->compile_evaluated;
 		pri_expr->value = ((expr_t*)(pri_expr->expr))->value;
 		EXPECT(TK_RPAREN)
 		break;
@@ -162,6 +167,10 @@ ast_node_t *parse_postfix()
 				break;
 			}
 			postfix->expr = parse_expr();
+			if (postfix->expr->compile_evaluated == FALSE) {
+				ERROR("expression must be constant");
+			}
+			postfix->value = postfix->expr->value;
 			break;
 		case TK_LPAREN:
 			NEXT_TOKEN;
@@ -320,8 +329,7 @@ ast_node_t *parse_binary_expr(int prev_prec)
 	int curr_prec;
 
 	unary_expr = parse_unary_expr();
-	curr_prec = get_binary_op_prec(G_TK_KIND);
-	while (curr_prec >= prev_prec) {
+	while (get_binary_op_prec(G_TK_KIND) >= prev_prec) {
 		binary_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
 		binary_expr->op1 = unary_expr;
 		binary_expr->op = G_TK_KIND;

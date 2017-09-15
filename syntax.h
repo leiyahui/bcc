@@ -64,15 +64,17 @@ typedef struct _expr_t {
 	assign_expr_t *assign_expr;
 	struct _expr_t *next;
 	double value;
+	BOOL compile_evaluated;
 }expr_t;
 
-#define PRI_EXPR_TOKEN	0
-#define PRI_EXPR_EXPR	1
+#define PRI_TOKEN	0
+#define PRI_EXPR	1
 
 typedef struct _primary_expr_t {
 	int kind;
-	ast_node_t *expr;
+	expr_t *expr;
 	double value;
+	BOOL compile_evaluated;
 }primary_expr_t;
 
 typedef struct _argu_expr_list_t {
@@ -116,22 +118,29 @@ typedef struct _unary_expr_t {
 	expr_t *expr;
 	type_name_t *cast_type;
 	int op;
+	BOOL compile_evaluated;
+	double value;			
 }unary_expr_t;
 
 typedef struct _binary_expr_t {
 	struct _binary_expr_t *op1;
 	struct _binary_expr_t *op2;
 	int op;
+	BOOL compile_evaluated;
+	double value;			
 }binary_expr_t;
 
 typedef struct _cond_expr_t {
 	binary_expr_t *logic_or_expr;
 	expr_t *expr;
 	struct _cond_expr_t *cond_expr;
+	BOOL compile_evaluated;
+	double value;			//if constant expr is all number, it's calculated when parse
 }cond_expr_t;
 
 typedef struct _const_expr_t {
 	cond_expr_t *cond_expr;
+	BOOL compile_evaluated;
 	double value;			//if constant expr is all number, it's calculated when parse
 }const_expr_t;
 
