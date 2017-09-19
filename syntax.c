@@ -577,12 +577,22 @@ ast_node_t *parse_enum()
 	}
 }
 
+type_spec_t *create_type_spec()
+{
+	type_spec_t *type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
+	type_spec->kind = 0;
+	type_spec->sign = 0;
+	type_spec->value = NULL;
+}
+
 ast_node_t *parse_decl_spec(int with_store_cls)
 {	
 	decl_spec_t *decl_spec = NULL;
 	BOOL invalid_decl_spec;
 
 	decl_spec = (decl_spec_t *)bcc_malloc(sizeof(decl_spec_t));
+	decl_spec->store_cls = decl_spec->type_qual = NULL;
+	decl_spec->type_spec = create_type_spec();
 
 	invalid_decl_spec = FALSE;
 	while (1) {
@@ -595,8 +605,9 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			if (!with_store_cls) {
 				ERROR("unexpected store class");
 			}
-			if (decl_spec->store_cls.kind == 0) {
-				decl_spec->store_cls.kind = G_TK_KIND;
+			if (decl_spec->store_cls == NULL) {
+				decl_spec->store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(store_cls_spec_t));
+				decl_spec->store_cls->kind = G_TK_KIND;
 			} else {
 				ERROR("repeated storage class specifier");
 			}
@@ -608,41 +619,41 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 		case TK_LONG:
 		case TK_FLOAT:
 		case TK_DOUBLE:
-			if (decl_spec->type_spec.kind = 0) {
-				decl_spec->type_spec.kind = G_TK_KIND;
+			if (decl_spec->type_spec->kind == 0) {
+				decl_spec->type_spec->kind = G_TK_KIND;
 			} else {
 				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_SIGNED:
 		case TK_UNSIGNED:
-			if (decl_spec->type_spec.sign = 0) {
-				decl_spec->type_spec.sign = G_TK_KIND;
+			if (decl_spec->type_spec->sign == 0) {
+				decl_spec->type_spec->sign = G_TK_KIND;
 			} else {
 				ERROR("repeated type specifier ");
 			}
 		case TK_STRUCT:
 		case TK_UNION:
-			if (decl_spec->type_spec.kind = 0) {
-				decl_spec->type_spec.kind = G_TK_KIND;
-				decl_spec->type_spec.value = parse_struct_union();
+			if (decl_spec->type_spec->kind = 0) {
+				decl_spec->type_spec->kind = G_TK_KIND;
+				decl_spec->type_spec->value = parse_struct_union();
 			} else {
 				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_ENUM:
-			if (decl_spec->type_spec.kind = 0) {
-				decl_spec->type_spec.kind = G_TK_KIND;
-				decl_spec->type_spec.value = parse_enum();
+			if (decl_spec->type_spec->kind = 0) {
+				decl_spec->type_spec->kind = G_TK_KIND;
+				decl_spec->type_spec->value = parse_enum();
 			} else {
 				ERROR("repeated type specifier");
 			}
 			break;
 		case TK_IDENTIFIER:
 			if (is_typedef_name(g_current_token.token_value.ptr)) {
-				if (decl_spec->type_spec.kind = 0) {
-					decl_spec->type_spec.kind = TK_IDENTIFIER;
-					decl_spec->type_spec.value = create_token_node();
+				if (decl_spec->type_spec->kind = 0) {
+					decl_spec->type_spec->kind = TK_IDENTIFIER;
+					decl_spec->type_spec->value = create_token_node();
 				} else {
 					ERROR("repeated type specifier");
 				}
@@ -651,15 +662,23 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			}
 			break;
 		case TK_CONST:
-			if (decl_spec->type_qual.with_const == 0) {
-				decl_spec->type_qual.with_const = TRUE;
+			if (decl_spec->type_qual == NULL) {
+				decl_spec->type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+				decl_spec->type_qual->qual = 0;
+			}
+			if (!(decl_spec->type_qual->qual | WITH_CONST)) {
+				decl_spec->type_qual->qual |= WITH_CONST;
 			} else {
 				ERROR("repeated const");
 			}
 			break;
 		case TK_VOLATILE:
-			if (decl_spec->type_qual.with_volatile == 0) {
-				decl_spec->type_qual.with_volatile = TRUE;
+			if (decl_spec->type_qual == NULL) {
+				decl_spec->type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+				decl_spec->type_qual->qual = 0;
+			}
+			if (!(decl_spec->type_qual->qual | WITH_VOLATILE)) {
+				decl_spec->type_qual->qual |= WITH_VOLATILE;
 			} else {
 				ERROR("repeated const");
 			}
@@ -707,6 +726,8 @@ ast_node_t *parse_abs_declarator()
 	declarator_t *decl;
 
 	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
+	decl->kind = ABS_DECLARATOR;
+
 	if (G_TK_KIND == TK_POINTER) {
 		decl->pointer = parse_pointer();
 		NEXT_TOKEN;
@@ -785,6 +806,7 @@ ast_node_t *parse_param_type_list()
 	param_type_list_t *list;
 
 	list = (param_type_list_t *)bcc_malloc(sizeof(param_type_list_t));
+
 	list->param_list = parse_param_list();
 	if (G_TK_KIND == TK_ELLIPSE) {
 		list->with_ellipse = TRUE;
@@ -851,6 +873,7 @@ ast_node_t *parse_direct_declarator()
 
 	direct_decl = (direct_declarator_t *)bcc_malloc(sizeof(direct_declarator_t));
 	direct_decl->decl = direct_decl->ident = direct_decl->post = NULL;
+	direct_decl->is_abs_decl = FALSE;
 
 	if (G_TK_KIND == TK_IDENTIFIER) {
 		direct_decl->ident = create_token_node();
@@ -868,32 +891,27 @@ ast_node_t *parse_direct_declarator()
 
 ast_node_t *parse_qual_list()
 {
-	int had_const, had_volatile;
-
 	type_qual_t *type_qual_ptr = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
 
-	had_volatile = had_const = FALSE;
+	type_qual_ptr->qual = 0;
 	while (G_TK_KIND == TK_VOLATILE || G_TK_KIND == TK_CONST) {
 		if (type_qual_ptr == NULL) {
 			type_qual_ptr = bcc_malloc(sizeof(type_qual_t));
 		}
 		if (G_TK_KIND == TK_CONST) {
-			if (had_const == TRUE) {
+			if (type_qual_ptr->qual | WITH_CONST) {
 				ERROR("repeated const");
 			}
-			had_const = TRUE;
+			type_qual_ptr->qual |= WITH_CONST;
 		}
 		if (G_TK_KIND == TK_VOLATILE) {
-			if (had_volatile == TRUE) {
+			if (type_qual_ptr->qual | WITH_VOLATILE) {
 				ERROR("repeated volatile");
 			}
-			had_volatile = TRUE;
+			type_qual_ptr->qual |= WITH_VOLATILE;
 		}
 		NEXT_TOKEN;
 	}
-
-	type_qual_ptr->with_const = had_const;
-	type_qual_ptr->with_volatile = had_volatile;
 	return type_qual_ptr;
 }
 
@@ -904,12 +922,7 @@ ast_node_t *parse_pointer()
 	if (G_TK_KIND == TK_MULTIPLY) {
 		pointer = (pointer_t *)bcc_malloc(sizeof(pointer_t));
 		pointer->type_qual_ptr = pointer->next = NULL;
-		pointer->pointer_num = 0;
-		while (G_TK_KIND == TK_MULTIPLY) {
-			pointer->pointer_num++;
-			NEXT_TOKEN;
-		}
-
+		NEXT_TOKEN;
 		pointer->type_qual_ptr = parse_qual_list();
 		pointer->next = parse_pointer();
 	}
@@ -922,6 +935,7 @@ ast_node_t *parse_declarator()
 
 	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
 	decl->pointer = decl->direct_declarator = NULL;
+	decl->kind = DECLARATOR;
 
 	decl->pointer = parse_pointer();
 	decl->direct_declarator = parse_direct_declarator();

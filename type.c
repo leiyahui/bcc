@@ -8,12 +8,13 @@ type_t g_base_type[BASE_TYPE_NUM];
 			g_base_type[type].kind = type;					\
 			g_base_type[type].align = size;					\
 			g_base_type[type].size = size;					\
-			g_base_type[type].store_cls = AUTO_STORE_CLS	\
-			g_base_type[type].qual = 0;				\
-			g_base_type[type].base_type = NULL
+			g_base_type[type].store_cls = AUTO_STORE_CLS;	\
+			g_base_type[type].qual = 0;						\
+			g_base_type[type].base_type = NULL;
 
 void init_base_type()
 {
+	INIT_ONE_BASE_TYPE(TYPE_VOID, 0)
 	INIT_ONE_BASE_TYPE(TYPE_CHAR, 1);
 	INIT_ONE_BASE_TYPE(TYPE_SHORT, 2);
 	INIT_ONE_BASE_TYPE(TYPE_INT, 4);
@@ -33,21 +34,39 @@ tag_type_t * create_tag(char * name, int struct_or_union)
 	type->head = type->tail = NULL;
 }
 
-void add_field_to_tag(tag_type_t *tag, type_t *type, char *name, int bits)
+void add_field_list_to_tag(tag_type_t *tag, field_list_t *list)
 {
-	field_type_t *field;
-	field = (field_type_t *)bcc_malloc(sizeof(field_type_t));
-	
+	if (tag->head = NULL) {
+		tag->head = tag->tail = list;
+	}
+	else {
+		tag->tail->next = list;
+		tag->tail = list;
+	}
+}
+
+field_list_t *create_field_list(type_t *type)
+{
+	field_list_t *field;
+	field = (field_list_t *)bcc_malloc(sizeof(field_list_t));
 	field->type = type;
+	field->head = field->tail = NULL;
+}
+
+void add_field_to_same_type_list(field_list_t *field_list, type_t *type, char *name, int bits)
+{
+	field_t *field;
+
+	field = (field_t*)bcc_malloc(sizeof(field_t));
 	field->name = name;
 	field->bits = bits;
-	field->next = NULL;
 
-	if (tag->head = NULL) {
-		tag->head = tag->tail = field;
-	} else {
-		tag->tail->next = field;
-		tag->tail = field;
+	if (field_list->head == NULL) {
+		field_list->head = field_list->tail = field;
+	}
+	else {
+		field_list->tail->next = field;
+		field_list->tail = field;
 	}
 }
 
@@ -63,16 +82,17 @@ function_type_t* create_func_type(char * name, type_t * ret)
 
 void add_param_to_func(function_type_t *func, type_t *type, char *name)
 {
-	field_type_t * param;
-	param = (field_type_t * *)bcc_malloc(sizeof(field_type_t));
-	
+	param_type_t * param;
+	param = (param_type_t **)bcc_malloc(sizeof(param_type_t));
+
 	param->name = name;
 	param->type = type;
 	param->next = NULL;
 
 	if (func->head = NULL) {
 		func->head = func->tail = param;
-	} else {
+	}
+	else {
 		func->tail->next = param;
 		func->tail = param;
 	}
@@ -81,7 +101,7 @@ void add_param_to_func(function_type_t *func, type_t *type, char *name)
 td_type_t * create_td_type(char * name, type_t * type)
 {
 	td_type_t *td;
-	
+
 	td->name = name;
 	td->type = type;
 
@@ -89,78 +109,150 @@ td_type_t * create_td_type(char * name, type_t * type)
 }
 
 
+#define POINTER_LENGTH 4
 
-type_t * get_postfix_declarator_type(decl_postfix_t * decl_postfix)
+type_t *derive_pointer_type(type_t *base_type, int qual)
+{
+	type_t *new_type;
+	new_type = (type_t *)bcc_malloc(sizeof(type_t));
+
+	new_type->qual = qual;
+	new_type->store_cls = base_type->store_cls;
+	new_type->kind = TYPE_POINTER;
+	new_type->size = new_type->align = 4;
+	new_type->base_type = base_type;
+	return new_type;
+}
+
+type_t *derive_array_type(type_t *base_type, int len)
+{
+	type_t *new_type;
+
+	new_type = (type_t *)bcc_malloc(sizeof(type_t));
+
+	new_type->qual = base_type->qual;
+	new_type->store_cls = base_type->store_cls;
+	new_type->kind = TYPE_ARRAY;
+	new_type->size = base_type->size * len;
+	new_type->align = base_type->align;
+	new_type->base_type = base_type;
+	return new_type;
+}
+
+type_t *get_declaration_base_type(declaration_t *decl)
 {
 	type_t *type;
-	int array_len;
-	type = (type_t *)bcc_malloc(sizeof(type_t));
-	
-	if (decl_postfix->paren_or_barcket == BRACKET) {
-		type->kind = TYPE_ARRAY;
-		type->align = type->size = ((const_expr_t *)decl_postfix->const_expr)->value;
-	} else if (decl_postfix->paren_or_barcket == PAREN) {
-		type->kind = TYPE_PARAMETER;
-		type->param_type = 
+	pointer_t *pointer;
+
+	if (decl->decl_spec) {
+		type = get_decl_spec_type(decl->decl_spec);
 	}
-	return NULL;
+
+	return type;
 }
 
-type_t * get_declarator_type(declarator_t * decl)
+void add_param_list_to_func(function_type_t *func_type, param_type_list_t *param_decl)
 {
-	return NULL;
+	type_t *base_type, *type;
+	declaration_t *param_declaration;
+	char *name;
+
+	param_declaration = param_decl->param_list;
+
+	while (param_declaration) {
+		base_type = get_declaration_base_type(param_declaration);
+		switch (param_declaration->declarator_list->kind) {
+		case DECLARATOR:
+			type = get_declarator_type(base_type, param_declaration->declarator_list);
+			add_param_to_func(func_type, type, param_declaration->declarator_list->direct_declarator->ident->tk_val.token_value.ptr);
+		case ABS_DECLARATOR:
+			type = get_declarator_type(base_type, param_declaration->declarator_list);
+			add_param_to_func(func_type, type, NULL);
+		default:
+			break;
+		}
+		param_declaration = param_declaration->next;
+	}
+	func_type->with_ellipse = param_decl->with_ellipse;
 }
 
-type_t * get_struct_declarator_type(struct_declarator_t * decl)
+type_t *get_declarator_type(type_t *base_type, declarator_t *decl)
 {
-	return NULL;
+	type_t *type;
+	pointer_t *pointer;
+	decl_postfix_t *post;
+
+	pointer = decl->pointer;
+	type = base_type;
+	while (pointer) {
+		type = derive_pointer_type(type, pointer->type_qual_ptr->qual);
+		pointer = pointer->next;
+	}
+	post = decl->direct_declarator->post;
+
+	while (post) {
+		if (post->paren_or_barcket == BRACKET) {
+			type = derive_array_type(type, post->const_expr->value);
+		}
+		if (post->paren_or_barcket == PAREN) {
+			type = create_func_type(decl->direct_declarator->ident->tk_val.token_value.ptr, type);
+			add_param_list_to_func(type, post->param_list);
+		}
+	}
+	return type;
 }
 
 type_t * get_struct_union_type(type_spec_t *type_spec)
 {
 	struct_or_union_spec_t *tag;
-	struct_declaration_t *decl;
+	declaration_t *declaration;
+	declarator_t *declarator;
+	type_t* decl_base_type, *decl_type;
+	type_t *tag_type, *field_list;
 
-	tag_type_t *tag_type;
-	
 	tag = (struct_or_union_spec_t *)(type_spec->value);
-	tag_type = create_tag(tag->ident, type_spec->kind);
-	
-	decl = tag->struct_decl;
-	decl
+	tag_type = create_tag(tag->ident->tk_val.token_value.ptr, tag->s_or_u);
 
+	declaration = tag->struct_decl;
+	while (declaration) {
+		decl_base_type = get_declaration_base_type(declaration);
+		declarator = declaration->declarator_list;
+		field_list = create_field_list(decl_base_type);
+		while (declarator) {
+			decl_type = get_declarator_type(decl_base_type, declarator);
+			add_field_to_same_type_list(field_list, decl_type, declarator->direct_declarator->ident->tk_val.token_value.ptr, declarator->const_expr->value);
+			declarator = declarator->next;
+		}
+		add_field_list_to_tag(tag, field_list);
+		declaration = declaration->next;
+	}
+	return tag;
 }
 
 type_t *get_decl_spec_type(decl_spec_t *spec)
 {
-	type_qual_t *type_qual;
-	type_spec_t *type_spec;
-	store_cls_spec_t *store_cls;
 	int store_cls_tk;
 	int type_spec_tk;
 
-	type_t *type;
+	type_t *base_type, *type;
 	type = (type_t *)bcc_malloc(sizeof(type_t));
 
-	type_qual = spec->type_qual;
-	type_spec = spec->type_spec;
-	store_cls = spec->store_cls;
-
-	//if (store_cls) {
-	//	type->store_cls = NODE_TOKEN_KIND(store_cls->value);
-	//}
-	//if (type_qual) {
-	//	if (type_qual->const_tk != NULL) {
-	//		type->qual |= WITH_CONST;
-	//	}
-	//	if (type_qual->volatile_tk != NULL) {
-	//		type->qual |= WITH_VOLATILE;
-	//	}
-	//}
-	if (type_spec) {
-		switch (NODE_TOKEN_KIND(type_spec->value)) {
-		case TK_STRUCT:
-			tag_type_t *tag = create_tag()
-		}
+	switch (spec->type_spec->kind) {
+	case TK_VOID:
+	case TK_CHAR:
+	case TK_SHORT:
+	case TK_INT:
+	case TK_LONG:
+	case TK_FLOAT:
+	case TK_DOUBLE:
+		break;
+	case TK_STRUCT:
+	case TK_UNION:
+		base_type = get_struct_union_type(spec->type_spec);
+	case TK_IDENTIFIER:
+		base_type = 
+		
+	default:
+		break;
 	}
 }

@@ -24,20 +24,22 @@ typedef struct _type_spec_t {
 	ast_node_t *value;
 }type_spec_t;
 
+
+#define WITH_CONST		0x1 << 1
+#define WITH_VOLATILE	0x1 << 2
+
 typedef struct _type_qual_t {
-	int with_const;
-	int with_volatile;
+	int qual;
 }type_qual_t;
 
 typedef struct _decl_spec_t {
-	store_cls_spec_t	store_cls;
-	type_spec_t	type_spec;
-	type_qual_t	type_qual;
+	store_cls_spec_t	*store_cls;
+	type_spec_t			*type_spec;
+	type_qual_t			*type_qual;
 }decl_spec_t;
 
 
 typedef struct _pointer_t {
-	int pointer_num;
 	type_qual_t *type_qual_ptr;
 	struct _pointer_t *next;
 }pointer_t;
@@ -145,7 +147,7 @@ typedef struct _const_expr_t {
 }const_expr_t;
 
 typedef struct _param_type_list_t {
-	declarator_t *param_list;
+	declaration_t *param_list;
 	BOOL with_ellipse;
 }param_type_list_t;
 
@@ -175,7 +177,7 @@ typedef struct _direct_declarator_t {
 #define DECLARATOR			1 << 1
 #define INIT_DECLARATOR		1 << 2
 #define STRUCT_DECLARATOR	1 << 3
-#define ABS_DECLARATOIR		1 << 4
+#define ABS_DECLARATOR		1 << 4
 
 typedef struct _declarator_t {
 	int kind;
