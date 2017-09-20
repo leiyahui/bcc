@@ -53,4 +53,6 @@ void insert_to_user_define_type(user_define_type_t *space_tail, char *name, type
 BOOL in_curr_user_define_type(user_define_type_t *type_head, char *name);
 
 BOOL in_symbol_table(symbol_t *sym_head, char *name);
+
+type_t *get_user_def_type(user_define_type_t *type_head, char *name);
 #endif

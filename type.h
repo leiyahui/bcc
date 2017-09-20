@@ -20,6 +20,7 @@ typedef struct _type_t {
 	int kind;
 	int size;
 	int align;
+	int sign;
 	struct _type_t *base_type;
 }type_t;
 
@@ -89,9 +90,9 @@ td_type_t *create_td_type(char *name, type_t *type);
 
 
 /*get_get*/
-type_t *get_postfix_declarator_type(decl_postfix_t *decl_postfix);
+type_t *get_declaration_base_type(declaration_t *decl);
 
-type_t *get_declarator_type(declarator_t *decl);
+type_t *get_declarator_type(type_t *base_type, declarator_t *decl);
 
 type_t *get_struct_union_type(type_spec_t *type_spec);
 

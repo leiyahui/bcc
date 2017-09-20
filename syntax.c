@@ -577,12 +577,29 @@ ast_node_t *parse_enum()
 	}
 }
 
-type_spec_t *create_type_spec()
+decl_spec_t *create_decl_spec()
 {
-	type_spec_t *type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
+	decl_spec_t *decl_spec;
+	type_spec_t *type_spec;
+	type_qual_t *type_qual;
+	store_cls_spec_t *store_cls;
+
+	type_spec = (type_spec_t *)bcc_malloc(sizeof(type_spec_t));
 	type_spec->kind = 0;
 	type_spec->sign = 0;
 	type_spec->value = NULL;
+
+	type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+	type_qual->qual = 0;
+
+	store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(type_qual_t));
+	store_cls->kind = 0;
+	
+	decl_spec = (decl_spec_t *)bcc_malloc(sizeof(decl_spec_t));
+	decl_spec->type_spec = type_spec;
+	decl_spec->type_qual = type_qual;
+	decl_spec->store_cls = store_cls;
+	return decl_spec;
 }
 
 ast_node_t *parse_decl_spec(int with_store_cls)
@@ -590,9 +607,7 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 	decl_spec_t *decl_spec = NULL;
 	BOOL invalid_decl_spec;
 
-	decl_spec = (decl_spec_t *)bcc_malloc(sizeof(decl_spec_t));
-	decl_spec->store_cls = decl_spec->type_qual = NULL;
-	decl_spec->type_spec = create_type_spec();
+	decl_spec = create_decl_spec();
 
 	invalid_decl_spec = FALSE;
 	while (1) {
@@ -605,8 +620,7 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			if (!with_store_cls) {
 				ERROR("unexpected store class");
 			}
-			if (decl_spec->store_cls == NULL) {
-				decl_spec->store_cls = (store_cls_spec_t *)bcc_malloc(sizeof(store_cls_spec_t));
+			if (decl_spec->store_cls->kind == 0) {
 				decl_spec->store_cls->kind = G_TK_KIND;
 			} else {
 				ERROR("repeated storage class specifier");
@@ -662,10 +676,6 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			}
 			break;
 		case TK_CONST:
-			if (decl_spec->type_qual == NULL) {
-				decl_spec->type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
-				decl_spec->type_qual->qual = 0;
-			}
 			if (!(decl_spec->type_qual->qual | WITH_CONST)) {
 				decl_spec->type_qual->qual |= WITH_CONST;
 			} else {
@@ -673,10 +683,6 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 			}
 			break;
 		case TK_VOLATILE:
-			if (decl_spec->type_qual == NULL) {
-				decl_spec->type_qual = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
-				decl_spec->type_qual->qual = 0;
-			}
 			if (!(decl_spec->type_qual->qual | WITH_VOLATILE)) {
 				decl_spec->type_qual->qual |= WITH_VOLATILE;
 			} else {

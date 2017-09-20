@@ -66,3 +66,17 @@ BOOL in_symbol_table(symbol_t *sym_head, char *name)
 
 	return FALSE;
 }
+
+type_t *get_user_def_type(user_define_type_t *type_head, char *name)
+{
+	user_define_type_t *iter_type;
+
+	iter_type = type_head->next;
+	while (iter_type != NULL) {
+		if (iter_type == name) {
+			return iter_type->type;
+		}
+		iter_type = iter_type->next;
+	}
+	return NULL;
+}

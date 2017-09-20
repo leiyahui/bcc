@@ -4,17 +4,17 @@
 
 type_t g_base_type[BASE_TYPE_NUM];
 
-#define INIT_ONE_BASE_TYPE(type, size)						\
-			g_base_type[type].kind = type;					\
-			g_base_type[type].align = size;					\
-			g_base_type[type].size = size;					\
+#define INIT_ONE_BASE_TYPE(type, size_a)						\
+			g_base_type[type].kind = type;						\
+			g_base_type[type].align = size_a;					\
+			g_base_type[type].size = size_a;					\
 			g_base_type[type].store_cls = AUTO_STORE_CLS;	\
 			g_base_type[type].qual = 0;						\
 			g_base_type[type].base_type = NULL;
 
 void init_base_type()
 {
-	INIT_ONE_BASE_TYPE(TYPE_VOID, 0)
+	INIT_ONE_BASE_TYPE(TYPE_VOID, 0);
 	INIT_ONE_BASE_TYPE(TYPE_CHAR, 1);
 	INIT_ONE_BASE_TYPE(TYPE_SHORT, 2);
 	INIT_ONE_BASE_TYPE(TYPE_INT, 4);
@@ -139,6 +139,20 @@ type_t *derive_array_type(type_t *base_type, int len)
 	return new_type;
 }
 
+type_t *derive_decl_spec_type(type_t *base_type, int qual, int sign, int store_cls)
+{
+	type_t *new_type;
+
+	new_type->qual = qual;
+	new_type->sign = sign;
+	new_type->store_cls = store_cls;
+	new_type->align = base_type->align;
+	new_type->sign = base_type->sign;
+	new_type->kind = base_type->kind;
+
+	return new_type;
+}
+
 type_t *get_declaration_base_type(declaration_t *decl)
 {
 	type_t *type;
@@ -229,13 +243,35 @@ type_t * get_struct_union_type(type_spec_t *type_spec)
 	return tag;
 }
 
+int trans_tk_kind_to_type_kind(int tk_kind)
+{
+	switch (tk_kind) {
+	case TK_VOID:
+		return TYPE_VOID;
+	case TK_CHAR:
+		return TYPE_CHAR;
+	case TK_SHORT:
+		return TYPE_SHORT;
+	case TK_INT:
+		return TYPE_INT;
+	case TK_LONG:
+		return TYPE_LONG;
+	case TK_FLOAT:
+		return TYPE_LONG;
+	case TK_DOUBLE:
+		return TK_DOUBLE;
+	default:
+		ERROR("not base type");
+	}
+}
+
 type_t *get_decl_spec_type(decl_spec_t *spec)
 {
 	int store_cls_tk;
 	int type_spec_tk;
 
 	type_t *base_type, *type;
-	type = (type_t *)bcc_malloc(sizeof(type_t));
+	type = base_type = NULL;
 
 	switch (spec->type_spec->kind) {
 	case TK_VOID:
@@ -245,14 +281,25 @@ type_t *get_decl_spec_type(decl_spec_t *spec)
 	case TK_LONG:
 	case TK_FLOAT:
 	case TK_DOUBLE:
+		base_type = &g_base_type[trans_tk_kind_to_type_kind(spec->type_spec->kind)];
 		break;
 	case TK_STRUCT:
 	case TK_UNION:
 		base_type = get_struct_union_type(spec->type_spec);
+		break;
 	case TK_IDENTIFIER:
-		base_type = 
-		
+		base_type = get_user_def_type(&(g_curr_scope->tdname_head), spec->type_spec->value->tk_val.token_value.ptr);
+		break;
 	default:
 		break;
 	}
+
+	if (spec->type_spec->sign) {
+		if (base_type != NULL) {
+			base_type = &g_base_type[TYPE_INT];
+		}
+	}
+
+	type = derive_decl_spec_type(base_type, spec->type_qual->qual, spec->type_spec->sign, spec->store_cls->kind);
+	return type;
 }
