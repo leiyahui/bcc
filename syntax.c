@@ -45,12 +45,12 @@ BOOL is_typedef_name(char *name)
 #define G_TK_VALUE	g_current_token.token_value
 #define G_TK_LINE	g_current_token.line
 
-#define TK_VALUE_INT(tk)	= (tk).int_num
-#define TK_VALUE_SHORT(tk)	= tk.short_num
-#define TK_VALUE_LONG(tk)	= tk.long_num
-#define TK_VALUE_FLOAT(tk)	= tk.float_num
-#define TK_VALUE_DOUBLE(tk)	= tk.double_num
-#define TK_VALUE_PTR(tk)	= tk.ptr
+#define TK_VALUE_INT(tk)	 tk.int_num
+#define TK_VALUE_SHORT(tk)	 tk.short_num
+#define TK_VALUE_LONG(tk)	 tk.long_num
+#define TK_VALUE_FLOAT(tk)	 tk.float_num
+#define TK_VALUE_DOUBLE(tk)	 tk.double_num
+#define TK_VALUE_PTR(tk)	 tk.ptr
 
 #define EXPECT(tk_kind) if (G_TK_KIND != tk_kind) {									\
 							ERROR("expect token is:%d", tk_kind);		\
@@ -123,7 +123,6 @@ ast_node_t *parse_primary_expr()
 		break;
 	case TK_STRING:
 		pri_expr->expr = create_token_node();
-		pri_expr->value = TK_VALUE_PTR(G_TK_VALUE);
 		NEXT_TOKEN;
 		break;
 	case TK_LPAREN:
