@@ -25,13 +25,14 @@ void init_base_type()
 	INIT_ONE_BASE_TYPE(TYPE_ARRAY, 0);
 }
 
-tag_type_t * create_tag(char * name, int struct_or_union)
+tag_type_t * create_tag_type(char * name, int struct_or_union)
 {
 	tag_type_t *type;
 	type = (tag_type_t *)bcc_malloc(sizeof(tag_type_t));
 	type->name = name;
 	type->type = struct_or_union;
 	type->head = type->tail = NULL;
+	return type;
 }
 
 void add_field_list_to_tag(tag_type_t *tag, field_list_t *list)
@@ -51,6 +52,7 @@ field_list_t *create_field_list(type_t *type)
 	field = (field_list_t *)bcc_malloc(sizeof(field_list_t));
 	field->type = type;
 	field->head = field->tail = NULL;
+	return field;
 }
 
 void add_field_to_same_type_list(field_list_t *field_list, type_t *type, char *name, int bits)
@@ -216,6 +218,26 @@ type_t *get_declarator_type(type_t *base_type, declarator_t *decl)
 	return type;
 }
 
+void add_declaration_to_sym_table(declaration_t *declaration)
+{
+	decl_spec_t *decl_spec;
+	declarator_t *declarator;
+	type_t *base_type, *type;
+	char *name;
+
+	decl_spec = declaration->decl_spec;
+	base_type = get_declaration_base_type(declaration);
+	declarator = declaration->declarator_list;
+	while (declarator) {
+		type = get_declarator_type(base_type, declarator);
+		if (decl_spec->store_cls->kind == TK_TYPEDEF) {
+			insert_to_user_define_type(g_curr_scope->tdname_tail, declarator->direct_declarator->ident->tk_val.token_value.ptr, type, TRUE);
+		} else {
+			insert_to_sym_table(g_curr_scope->sym_tail, declarator->direct_declarator->ident->tk_val.token_value.ptr, type);
+		}
+	}
+}
+
 type_t * get_struct_union_type(type_spec_t *type_spec)
 {
 	struct_or_union_spec_t *tag;
@@ -223,10 +245,20 @@ type_t * get_struct_union_type(type_spec_t *type_spec)
 	declarator_t *declarator;
 	type_t* decl_base_type, *decl_type;
 	type_t *tag_type, *field_list;
+	char *tag_name;
 
 	tag = (struct_or_union_spec_t *)(type_spec->value);
-	tag_type = create_tag(tag->ident->tk_val.token_value.ptr, tag->s_or_u);
-
+	if (tag->ident == NULL) {
+		tag_type = create_tag_type(NULL, tag->s_or_u);
+	} else {
+		tag_type = create_tag_type(tag->ident->tk_val.token_value.ptr, tag->s_or_u);
+		if (tag->struct_decl != NULL) {
+			insert_to_user_define_type(g_curr_scope->tags_tail, tag->ident->tk_val.token_value.ptr, tag_type, TRUE);
+		} else {
+			insert_to_user_define_type(g_curr_scope->tags_tail, tag->ident->tk_val.token_value.ptr, tag_type, FALSE);
+		}
+	}
+	
 	declaration = tag->struct_decl;
 	while (declaration) {
 		decl_base_type = get_declaration_base_type(declaration);
@@ -237,10 +269,11 @@ type_t * get_struct_union_type(type_spec_t *type_spec)
 			add_field_to_same_type_list(field_list, decl_type, declarator->direct_declarator->ident->tk_val.token_value.ptr, declarator->const_expr->value);
 			declarator = declarator->next;
 		}
-		add_field_list_to_tag(tag, field_list);
+		add_field_list_to_tag(tag_type, field_list);
 		declaration = declaration->next;
 	}
-	return tag;
+
+	return tag_type;
 }
 
 int trans_tk_kind_to_type_kind(int tk_kind)

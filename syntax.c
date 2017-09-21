@@ -505,6 +505,7 @@ ast_node_t *parse_struct_union()
 	struct_or_union_spec_t *struct_union;
 
 	struct_union = (struct_or_union_spec_t*)bcc_malloc(sizeof(struct_or_union_spec_t));
+	struct_union->ident = NULL;
 	struct_union->s_or_u = G_TK_KIND;
 
 	NEXT_TOKEN;
@@ -777,7 +778,7 @@ ast_node_t *parse_param_declaration()
 	param_decl->decl_spec = param_decl->declarator_list = param_decl->next = NULL;
 
 	param_decl->decl_spec = parse_decl_spec(TRUE);
-	if (param_decl->decl_spec->store_cls.kind == TK_TYPEDEF) {
+	if (param_decl->decl_spec->store_cls->kind == TK_TYPEDEF) {
 		ERROR("invalid store class in param declaration");
 	}
 	SAVE_CURR_COORDINATE;
@@ -1019,6 +1020,7 @@ ast_node_t *parse_declaration()
 	if (G_TK_KIND != TK_SEMICOLON) {
 		decl->declarator_list = parse_init_declarator_list();
 	}
+	add_declaration_to_sym_table(decl);
 	NEXT_TOKEN;
 	return decl;
 }

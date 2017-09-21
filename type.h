@@ -73,7 +73,7 @@ typedef struct _function_type_t {
 
 void init_base_type();
 
-tag_type_t* create_tag(char *name, int struct_or_union);
+tag_type_t* create_tag_type(char *name, int struct_or_union);
 
 field_list_t *create_field_list(type_t *type);
 
@@ -97,5 +97,7 @@ type_t *get_declarator_type(type_t *base_type, declarator_t *decl);
 type_t *get_struct_union_type(type_spec_t *type_spec);
 
 type_t *get_decl_spec_type(decl_spec_t *spec);
+
+void add_declaration_to_sym_table(declaration_t *declaration);
 
 #endif

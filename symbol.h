@@ -50,6 +50,8 @@ void init_g_scope();
 
 void insert_to_user_define_type(user_define_type_t *space_tail, char *name, type_t *type, BOOL has_declarator);
 
+void insert_to_sym_table(symbol_t *sym_tail, char *name, type_t *type);
+
 BOOL in_curr_user_define_type(user_define_type_t *type_head, char *name);
 
 BOOL in_symbol_table(symbol_t *sym_head, char *name);
