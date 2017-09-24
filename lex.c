@@ -302,14 +302,14 @@ void scan_floating()
 	} else if(is_e_or_E(*G_CURSOR)) {		//without fraction
 		scan_exponent_part();
 	} else {
-		output("invalid character in floating constant");
+		ERROR("invalid character in floating constant");
 	}
 	
 	tk_kind = scan_floating_suffix();
 	
 	floating_value = strtod(base_ptr, NULL);
 	if (errno == ERANGE) {
-		warn_message("overflow in implicit constant conversion");
+		WARN("overflow in implicit constant conversion");
 	}
 
 	g_current_token.tk_kind = tk_kind;
@@ -345,7 +345,7 @@ int scan_integer_suffix()
 	case 'u':
 	case 'U':
 		if (suffix_flag & WITH_UNSIGNED_SUFFIX) {
-			output("invalid suffix in integer");
+			ERROR("invalid suffix in integer");
 		}
 		suffix_flag |= WITH_UNSIGNED_SUFFIX;
 		G_CURSOR++;
@@ -353,7 +353,7 @@ int scan_integer_suffix()
 	case 'l':
 	case 'L':
 		if (suffix_flag & WITH_LONG_SUFFIX) {
-			output("invalid suffix in integer");
+			ERROR("invalid suffix in integer");
 		}
 		suffix_flag |= WITH_LONG_SUFFIX;
 		G_CURSOR++;
@@ -463,7 +463,7 @@ void scan_integer()
 
  	integer_value = strtol(base_ptr, NULL, base);
 	if (errno == ERANGE) {
-		warn_message("overflow in implicit constant conversion");
+		WARN("overflow in implicit constant conversion");
 	}
 
 	tk_kind = get_integer_tk_kind(suffix_flag, base, integer_value);
@@ -502,7 +502,7 @@ static unsigned char scan_character_hex()			//most two Bit hex
 	unsigned char hex_value;
 
 	if (!is_hex_number(*G_CURSOR)) {
-		output("\\x used hex without hex digits");
+		ERROR("\\x used hex without hex digits");
 	}
 	hex_value = turn_ascii_to_num(*G_CURSOR);
 
@@ -586,7 +586,7 @@ char trans_simple_escape_sequence_to_ascii(unsigned char character)
 	} else if (character == 'v') {
 		ret_char = '\v';
 	} else {
-		output("unknown escape sequence: %c");
+		ERROR("unknown escape sequence: %c");
 	}
 	return ret_char;
 }
@@ -609,11 +609,11 @@ static char scan_one_character()
 	} else if (*G_CURSOR >= '!' && *G_CURSOR <= '~') {
 		ret_char = *G_CURSOR;
 		if (ret_char == '\'') {
-			output("empty character constant");
+			ERROR("empty character constant");
 		}
 		G_CURSOR++;
 	} else {
-		output("invalid character constant");
+		ERROR("invalid character constant");
 	}
 	return ret_char;
 }
@@ -653,7 +653,7 @@ char scan_one_str_character()
 		ret_char = *G_CURSOR;
 		G_CURSOR++;
 	} else {
-		output("invalid character constant");
+		ERROR("invalid character constant");
 	}
 	return ret_char;
 }
@@ -1025,7 +1025,7 @@ void scan_file_end()
 
 void scan_bad_letter()
 {
-	output("illegal character");
+	ERROR("illegal character");
 }
 
 void get_next_token()

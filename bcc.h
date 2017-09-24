@@ -18,18 +18,18 @@
 #include <stdarg.h>
 
 /*cunit*/
-#include <CUnit.h>
-#include <TestDB.h>
-#include <Basic.h>
+#include "CUnit.h"
+#include "TestDB.h"
+#include "Basic.h"
 
-#include "type.h"
-#include "memory.h"
 #include "common.h"
+#include "memory.h"
 #include "load_file.h"
 #include "hash.h"
 #include "lex.h"
-#include "symbol.h"
 #include "syntax.h"
+#include "type.h"
+#include "symbol.h"
 #include "output_message.h"
 
 #endif

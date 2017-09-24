@@ -3,10 +3,6 @@
 
 #include "bcc.h"
 
-extern scope_t *g_curr_scope;
-
-#define G_SCOPE(v) = (g_curr_scope->v)
-
 #define STRUCT_SYM			1
 #define UNION_SYM			2
 #define ENUM_SYM			3
@@ -18,7 +14,7 @@ extern scope_t *g_curr_scope;
 typedef struct _symbol_t {
 	char *name;
 	type_t *type;
-	symbol_t *next;
+	struct _symbol_t *next;
 }symbol_t;
 
 typedef struct _user_define_type_t {				// includeing tags, statement_labels, typedef name
@@ -45,6 +41,10 @@ typedef struct _scope_t {
 	symbol_t *sym_tail;
 	struct _scope_t *parent;
 }scope_t;
+
+
+extern scope_t *g_curr_scope;
+#define G_SCOPE(v) = (g_curr_scope->v)
 
 void init_g_scope();
 

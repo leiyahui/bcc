@@ -9,12 +9,12 @@ typedef struct _input_file_t {
 	char* file_name;
 	char* base;
 	char *cursor;
-#ifdef _WIN32
-	HANDLE h_file;
-	HANDLE h_filemapping;
-#else
+//#ifdef _WIN32
+//	HANDLE h_file;
+//	HANDLE h_filemapping;
+//#else
 	int fd;
-#endif
+//#endif
 	int line;
 	int colum;
 	int size;

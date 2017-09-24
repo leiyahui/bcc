@@ -147,6 +147,34 @@ ast_node_t *parse_primary_expr()
 														postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
 														postfix->next = tmp_postfix
 
+BOOL is_decl_spec() {
+	if (G_TK_KIND == TK_TYPEDEF
+		|| G_TK_KIND == TK_EXTERN
+		|| G_TK_KIND == TK_STATIC
+		|| G_TK_KIND == TK_AUTO
+		|| G_TK_KIND == TK_REGISTER
+		|| G_TK_KIND == TK_VOID
+		|| G_TK_KIND == TK_CHAR
+		|| G_TK_KIND == TK_SHORT
+		|| G_TK_KIND == TK_INT
+		|| G_TK_KIND == TK_LONG
+		|| G_TK_KIND == TK_FLOAT
+		|| G_TK_KIND == TK_DOUBLE
+		|| G_TK_KIND == TK_SIGNED
+		|| G_TK_KIND == TK_UNSIGNED
+		|| G_TK_KIND == TK_STRUCT
+		|| G_TK_KIND == TK_ENUM
+		|| G_TK_KIND == TK_CONST
+		|| G_TK_KIND == TK_VOLATILE) {
+		return TRUE;
+	}
+	if (G_TK_KIND == TK_IDENTIFIER) {
+		if (is_typedef_name(g_current_token.token_value.ptr)) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
 
 ast_node_t *parse_postfix()
 {
@@ -393,7 +421,7 @@ ast_node_t *parse_assign_expr()
 		NEXT_TOKEN;
 		assign_expr->assign_expr = parse_assign_expr();
 	}
-
+	return assign_expr;
 }
 
 ast_node_t *parse_argu_expr_list()
@@ -544,14 +572,13 @@ ast_node_t *parse_enumerator_list()
 {
 	enumerator_t *list, *list_iter;
 
-	list = list_iter = (enumerator_t *)bcc_malloc(sizeof(enumerator_t));
-	list_iter = parse_enumerator();
+	list = list_iter = parse_enumerator();
 
 	while (G_TK_KIND == TK_COMMA) {
 		list_iter->next = parse_enumerator();
 		list_iter = list_iter->next;
 	}
-	return list_iter;
+	return list;
 }
 
 ast_node_t *parse_enum()
@@ -575,6 +602,7 @@ ast_node_t *parse_enum()
 	} else {
 		ERROR("expect '{' or identifier");
 	}
+	return enum_spec;
 }
 
 decl_spec_t *create_decl_spec()
@@ -948,19 +976,6 @@ ast_node_t *parse_declarator()
 	return decl;
 }
 
-ast_node_t *parse_initializer_list()
-{
-	initializer_t *init_list, *init_iter;
-
-	init_iter = init_list = parse_initializer();
-	while (G_TK_KIND == TK_COMMA) {
-		NEXT_TOKEN;
-		init_iter->next = parse_initializer_list();
-		init_iter = init_iter->next;
-	}
-	return init_list;
-}
-
 ast_node_t *parse_initializer()
 {
 	initializer_t *initializer;
@@ -977,6 +992,19 @@ ast_node_t *parse_initializer()
 	}
 	initializer->assign_expr = parse_assign_expr();
 	return initializer;
+}
+
+ast_node_t *parse_initializer_list()
+{
+	initializer_t *init_list, *init_iter;
+
+	init_iter = init_list = parse_initializer();
+	while (G_TK_KIND == TK_COMMA) {
+		NEXT_TOKEN;
+		init_iter->next = parse_initializer();
+		init_iter = init_iter->next;
+	}
+	return init_list;
 }
 
 ast_node_t *parse_init_declarator()
@@ -1022,35 +1050,6 @@ ast_node_t *parse_declaration()
 	add_declaration_to_sym_table(decl);
 	NEXT_TOKEN;
 	return decl;
-}
-
-BOOL is_decl_spec() {
-	if (G_TK_KIND == TK_TYPEDEF
-		|| G_TK_KIND == TK_EXTERN
-		|| G_TK_KIND == TK_STATIC
-		|| G_TK_KIND == TK_AUTO
-		|| G_TK_KIND == TK_REGISTER
-		|| G_TK_KIND == TK_VOID
-		|| G_TK_KIND == TK_CHAR
-		|| G_TK_KIND == TK_SHORT
-		|| G_TK_KIND == TK_INT
-		|| G_TK_KIND == TK_LONG
-		|| G_TK_KIND == TK_FLOAT
-		|| G_TK_KIND == TK_DOUBLE
-		|| G_TK_KIND == TK_SIGNED
-		|| G_TK_KIND == TK_UNSIGNED
-		|| G_TK_KIND == TK_STRUCT
-		|| G_TK_KIND == TK_ENUM
-		|| G_TK_KIND == TK_CONST
-		|| G_TK_KIND == TK_VOLATILE) {
-		return TRUE;
-	}
-	if (G_TK_KIND == TK_IDENTIFIER) {
-		if (is_typedef_name(g_current_token.token_value.ptr)) {
-			return TRUE;
-		}
-	}
-	return FALSE;
 }
 
 ast_node_t *parse_declaration_list()
