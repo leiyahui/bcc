@@ -185,7 +185,7 @@ BOOL is_sign(int ascii)
 
 BOOL is_octal_number(int ascii)
 {
-	if (ascii >= '0' && ascii <= '9') {
+	if (ascii >= '0' && ascii <= '8') {
 		return TRUE;
 	}
 	return FALSE;
