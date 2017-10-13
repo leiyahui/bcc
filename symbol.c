@@ -80,3 +80,16 @@ type_t *get_user_def_type(user_define_type_t *type_head, char *name)
 	}
 	return NULL;
 }
+
+type_t *get_symbol_type(symbol_t *sym_head, char *name)
+{
+	symbol_t *iter_sym;
+
+	iter_sym = sym_head->next;
+	while (iter_sym != NULL) {
+		if (iter_sym->name == name) {
+			return iter_sym->type;
+		}
+	}
+	return NULL;
+}

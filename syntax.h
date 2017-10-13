@@ -10,6 +10,18 @@ struct _cond_expr_t;
 struct _declarator_t;
 struct _declaration_t;
 
+enum expr_op {
+	OP_IDENT, OP_STR, OP_EXPR, OP_CONST		//primary expr
+	OP_FUNC, OP_ARRAY, OP_POINTER_TO, OP_CONTAIN, OP_POST_INC, OP_POST_DEC,	//postfix expr
+	OP_PRFIX_INC, OP_PRIFX_DEC, OP_ADDR, OP_REF, OP_UNARY_PLUS, OP_UNARY_MINUS, OP_BITREVERT, OP_NOT, //unary_expr
+	//binary expr
+	OP_MULTI, OP_DIVIDE, OP_MOD, OP_PLUS, OP_MINUS, OP_LEFT, OP_RIGHT, OP_LESS, OP_LESS_EQUAL, OP_GREAT, OP_GREAT_EQUAL, 
+	OP_EQUAL, OP_NEQUAL, OP_BIT_AND, OP_XOR, OP_BIT_OR, OP_AND, OP_OR,
+	OP_COND_EXPR,	//condition expr
+	ASSIGN_EXPR,	//assign expr
+	COMMA_EXPR		//comma expr
+};
+
 typedef union _ast_node_t {
 	token_t tk_val;
 }ast_node_t;
@@ -90,6 +102,18 @@ typedef struct _argu_expr_list_t {
 }argu_expr_list_t;
 
 
+typedef struct _common_expr_t {
+	int kind;
+	BOOL compile_evaluated;
+	BOOL l_value;
+	double value;
+	type_t *type;
+	ast_node_t *op;
+	common_expr_t *child_1;
+	common_expr_t *child_2;
+}common_expr_t;
+
+
 #define ARRAY_POSTFIX		0
 #define FUNC_POSTFIX		1
 #define STRCTURE_POSTFIX	2
@@ -108,6 +132,8 @@ typedef struct _postfix_t {
 typedef struct _postfix_expr_t {
 	primary_expr_t *primary_expr;
 	postfix_t *postfix;
+	double value;
+	BOOL compile_evaluted;
 }postfix_expr_t;
 
 #define POSTFIX_EXPR	0
@@ -128,6 +154,13 @@ typedef struct _unary_expr_t {
 	BOOL compile_evaluated;
 	double value;			
 }unary_expr_t;
+
+typedef struct _cast_expr_t {
+	type_name_t *type_name;
+	unary_expr_t *unary_expr;
+	BOOL compile_evaluated;
+	double value;
+}cast_expr_t;
 
 typedef struct _binary_expr_t {
 	struct _binary_expr_t *op1;
@@ -310,6 +343,7 @@ typedef struct _coordinate_t {
 }coordinate_t;
 
 ast_node_t *parse_expr();
+ast_node_t *parse_cast_expr();
 ast_node_t *parse_decl_spec(int with_store_cls);
 ast_node_t *parse_abs_declarator();
 ast_node_t *parse_decl_postfix();

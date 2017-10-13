@@ -37,14 +37,14 @@ typedef struct _scope_t {
 	user_define_type_t *tags_tail;
 	user_define_type_t tdname_head;
 	user_define_type_t *tdname_tail;
-	symbol_t *sym_head;
+	symbol_t sym_head;
 	symbol_t *sym_tail;
 	struct _scope_t *parent;
 }scope_t;
 
 
 extern scope_t *g_curr_scope;
-#define G_SCOPE(v) = (g_curr_scope->v)
+#define G_SCOPE(v)	(g_curr_scope->v)
 
 void init_g_scope();
 
@@ -57,4 +57,6 @@ BOOL in_curr_user_define_type(user_define_type_t *type_head, char *name);
 BOOL in_symbol_table(symbol_t *sym_head, char *name);
 
 type_t *get_user_def_type(user_define_type_t *type_head, char *name);
+
+type_t *get_symbol_type(symbol_t *sym_head, char *name);
 #endif

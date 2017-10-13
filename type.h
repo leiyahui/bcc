@@ -15,12 +15,12 @@ enum {
 #define REGISTER_STORE_CLS	4
 
 typedef struct _type_t {
-	int qual;
-	int store_cls;
 	int kind;
 	int size;
 	int align;
-	int sign;
+	int sign;		//unsigned is false, signed is true;
+	int qual;
+	int store_cls;
 	struct _type_t *base_type;
 }type_t;
 
@@ -71,7 +71,19 @@ typedef struct _function_type_t {
 
 /*func*/
 
-void init_base_type();
+extern type_t *g_ty_void;
+extern type_t *g_ty_char;
+extern type_t *g_ty_short;
+extern type_t *g_ty_int;
+extern type_t *g_ty_long;
+extern type_t *g_ty_float;
+extern type_t *g_ty_double;
+extern type_t *g_ty_uchar;
+extern type_t *g_ty_ushort;
+extern type_t *g_ty_uint;
+extern type_t *g_ty_ulong;
+extern type_t *g_ty_ufloat;
+extern type_t *g_ty_udouble;
 
 tag_type_t* create_tag_type(char *name, int struct_or_union);
 

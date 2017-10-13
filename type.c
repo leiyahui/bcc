@@ -1,29 +1,16 @@
 #include "bcc.h"
 
-#define BASE_TYPE_NUM 8
-
-type_t g_base_type[BASE_TYPE_NUM];
-
-#define INIT_ONE_BASE_TYPE(type, size_a)						\
-			g_base_type[type].kind = type;						\
-			g_base_type[type].align = size_a;					\
-			g_base_type[type].size = size_a;					\
-			g_base_type[type].store_cls = AUTO_STORE_CLS;	\
-			g_base_type[type].qual = 0;						\
-			g_base_type[type].base_type = NULL;
-
-void init_base_type()
-{
-	INIT_ONE_BASE_TYPE(TYPE_VOID, 0);
-	INIT_ONE_BASE_TYPE(TYPE_CHAR, 1);
-	INIT_ONE_BASE_TYPE(TYPE_SHORT, 2);
-	INIT_ONE_BASE_TYPE(TYPE_INT, 4);
-	INIT_ONE_BASE_TYPE(TYPE_LONG, 4);
-	INIT_ONE_BASE_TYPE(TYPE_FLOAT, 4);
-	INIT_ONE_BASE_TYPE(TYPE_DOUBLE, 8);
-	INIT_ONE_BASE_TYPE(TYPE_POINTER, 4);
-	INIT_ONE_BASE_TYPE(TYPE_ARRAY, 0);
-}
+type_t *g_ty_void = &(type_t){ TYPE_VOID, 0, 0, TRUE };
+type_t *g_ty_char = &(type_t) { TYPE_CHAR, 1, 1, TRUE };
+type_t *g_ty_short = &(type_t) { TYPE_SHORT, 2, 2, TRUE };
+type_t *g_ty_int = &(type_t) { TYPE_INT, 4, 4, TRUE };
+type_t *g_ty_long = &(type_t) { TYPE_LONG, 8, 8, TRUE };
+type_t *g_ty_float = &(type_t) { TYPE_FLOAT, 4, 4, TRUE };
+type_t *g_ty_double = &(type_t) { TYPE_VOID, 8, 8, TRUE };
+type_t *g_ty_uchar = &(type_t) { TYPE_CHAR, 1, 1, FALSE };
+type_t *g_ty_ushort = &(type_t) { TYPE_SHORT, 2, 2, FALSE };
+type_t *g_ty_uint = &(type_t) { TYPE_INT, 4, 4, FALSE };
+type_t *g_ty_ulong = &(type_t) { TYPE_LONG, 8, 8, FALSE };
 
 tag_type_t * create_tag_type(char * name, int struct_or_union)
 {
@@ -276,28 +263,6 @@ type_t * get_struct_union_type(type_spec_t *type_spec)
 	return tag_type;
 }
 
-int trans_tk_kind_to_type_kind(int tk_kind)
-{
-	switch (tk_kind) {
-	case TK_VOID:
-		return TYPE_VOID;
-	case TK_CHAR:
-		return TYPE_CHAR;
-	case TK_SHORT:
-		return TYPE_SHORT;
-	case TK_INT:
-		return TYPE_INT;
-	case TK_LONG:
-		return TYPE_LONG;
-	case TK_FLOAT:
-		return TYPE_LONG;
-	case TK_DOUBLE:
-		return TK_DOUBLE;
-	default:
-		ERROR("not base type");
-	}
-}
-
 type_t *get_decl_spec_type(decl_spec_t *spec)
 {
 	int store_cls_tk;
@@ -308,13 +273,25 @@ type_t *get_decl_spec_type(decl_spec_t *spec)
 
 	switch (spec->type_spec->kind) {
 	case TK_VOID:
+		base_type = g_ty_void;
+		break;
 	case TK_CHAR:
+		base_type = g_ty_char;
+		break;
 	case TK_SHORT:
+		base_type = g_ty_short;
+		break;
 	case TK_INT:
+		base_type = g_ty_int;
+		break;
 	case TK_LONG:
+		base_type = g_ty_long;
+		break;
 	case TK_FLOAT:
+		base_type = g_ty_float;
+		break;
 	case TK_DOUBLE:
-		base_type = &g_base_type[trans_tk_kind_to_type_kind(spec->type_spec->kind)];
+		base_type = g_ty_double;
 		break;
 	case TK_STRUCT:
 	case TK_UNION:
@@ -329,7 +306,7 @@ type_t *get_decl_spec_type(decl_spec_t *spec)
 
 	if (spec->type_spec->sign) {
 		if (base_type != NULL) {
-			base_type = &g_base_type[TYPE_INT];
+			base_type = g_ty_int;
 		}
 	}
 
