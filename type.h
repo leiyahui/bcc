@@ -32,14 +32,14 @@ typedef struct _field_t {
 }field_t;
 
 typedef struct _field_list_t {
-	type_t* type;
+	type_t *type;
 	field_t *head;
 	field_t *tail;
 	struct _field_list_t *next;
 }field_list_t;
 
 typedef struct _tag_type_t {
-	type_t *type;
+	type_t type;
 	char *name;
 	field_list_t *head;
 	field_list_t *tail;
@@ -50,11 +50,6 @@ typedef struct _enum_t {
 	char *name;
 }enum_t;
 
-typedef struct _td_type_t {
-	type_t *type;
-	type_t *name;
-}td_type_t;
-
 typedef struct _param_type_t {
 	type_t *type;
 	char *name;
@@ -62,6 +57,7 @@ typedef struct _param_type_t {
 }param_type_t;
 
 typedef struct _function_type_t {
+	type_t type;
 	type_t *ret;
 	char *name;
 	param_type_t *head;
@@ -96,9 +92,6 @@ void add_field_list_to_tag(tag_type_t *tag, field_list_t *list);
 function_type_t* create_func_type(char *name, type_t *ret_type);
 
 void add_param_to_func(function_type_t *func, type_t *type, char *name);
-
-td_type_t *create_td_type(char *name, type_t *type);
-
 
 
 /*get_get*/

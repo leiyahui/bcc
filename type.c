@@ -17,7 +17,7 @@ tag_type_t * create_tag_type(char * name, int struct_or_union)
 	tag_type_t *type;
 	type = (tag_type_t *)bcc_malloc(sizeof(tag_type_t));
 	type->name = name;
-	type->type = struct_or_union;
+	((type_t *)type)->kind = struct_or_union;
 	type->head = type->tail = NULL;
 	return type;
 }
@@ -62,7 +62,8 @@ void add_field_to_same_type_list(field_list_t *field_list, type_t *type, char *n
 function_type_t* create_func_type(char * name, type_t * ret)
 {
 	function_type_t *type;
-
+	
+	((type_t *)type)->kind = TYPE_FUNCTION;
 	type->name = name;
 	type->ret = ret;
 	type->head = type->tail = NULL;
@@ -86,17 +87,6 @@ void add_param_to_func(function_type_t *func, type_t *type, char *name)
 		func->tail = param;
 	}
 }
-
-td_type_t * create_td_type(char * name, type_t * type)
-{
-	td_type_t *td;
-
-	td->name = name;
-	td->type = type;
-
-	return td;
-}
-
 
 #define POINTER_LENGTH 4
 
@@ -191,6 +181,7 @@ type_t *get_declarator_type(type_t *base_type, declarator_t *decl)
 		type = derive_pointer_type(type, pointer->type_qual_ptr->qual);
 		pointer = pointer->next;
 	}
+
 	post = decl->direct_declarator->post;
 
 	while (post) {
@@ -202,6 +193,10 @@ type_t *get_declarator_type(type_t *base_type, declarator_t *decl)
 			add_param_list_to_func(type, post->param_list);
 		}
 	}
+	if (decl->direct_declarator->decl != NULL) {
+		type = get_declarator_type(type, decl->direct_declarator->decl);
+	}
+
 	return type;
 }
 

@@ -11,7 +11,7 @@ struct _declarator_t;
 struct _declaration_t;
 
 enum expr_op {
-	OP_IDENT, OP_STR, OP_EXPR, OP_CONST		//primary expr
+	OP_IDENT, OP_STR, OP_EXPR, OP_CONST,		//primary expr
 	OP_FUNC, OP_ARRAY, OP_POINTER_TO, OP_CONTAIN, OP_POST_INC, OP_POST_DEC,	//postfix expr
 	OP_PRFIX_INC, OP_PRIFX_DEC, OP_ADDR, OP_REF, OP_UNARY_PLUS, OP_UNARY_MINUS, OP_BITREVERT, OP_NOT, //unary_expr
 	//binary expr
