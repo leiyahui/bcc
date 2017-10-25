@@ -108,7 +108,7 @@ typedef struct _common_expr_t {
 	BOOL l_value;
 	double value;
 	type_t *type;
-	ast_node_t *op;
+	int op;
 	common_expr_t *child_1;
 	common_expr_t *child_2;
 }common_expr_t;

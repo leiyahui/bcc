@@ -87,8 +87,9 @@ ast_node_t *parse_primary_expr()
 	pri_expr = (common_expr_t * )bcc_malloc(sizeof(common_expr_t));
 	pri_expr->compile_evaluated = FALSE;
 
+
 	if (G_TK_KIND == TK_IDENTIFIER) {
-		pri_expr->kind = OP_IDENT;
+		pri_expr->op = OP_IDENT;
 		pri_expr->child_1 = create_token_node();
 		if (!in_symbol_table(&G_SCOPE(sym_head), G_TK_VALUE.ptr)) {
 			ERROR("Undeclare varible %s", G_TK_VALUE.ptr);
@@ -104,7 +105,7 @@ ast_node_t *parse_primary_expr()
 		return pri_expr;
 	}
 	if (G_TK_KIND == TK_LPAREN) {
-		pri_expr->kind = OP_EXPR;
+		pri_expr->op = OP_EXPR;
 		SKIP(TK_LPAREN);
 		pri_expr->child_1 = parse_expr();
 		pri_expr->compile_evaluated = pri_expr->child_1->compile_evaluated;
@@ -115,6 +116,7 @@ ast_node_t *parse_primary_expr()
 		return pri_expr;
 	}
 	if (G_TK_KIND == TK_STRING) {
+		pri_expr->op = OP_STR;
 		pri_expr->child_1 = create_token_node();
 		pri_expr->compile_evaluated = FALSE;
 		pri_expr->l_value = FALSE;
@@ -123,6 +125,7 @@ ast_node_t *parse_primary_expr()
 
 	pri_expr->compile_evaluated = TRUE;
 	pri_expr->l_value = FALSE;
+	pri_expr->op = OP_CONST;
 	switch (G_TK_KIND) {
 	case TK_INTCONST:
 		pri_expr->value = TK_VALUE_INT(G_TK_VALUE);
@@ -155,83 +158,94 @@ ast_node_t *parse_primary_expr()
 	return pri_expr;
 }
 
-#define CREATE_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
-													postfix = (common_expr_t *)bcc_malloc(sizeof(postfix_t));				\
-													postfix->next = tmp_postfix
+#define CREATE_EXPR_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
+														postfix = (common_expr_t *)bcc_malloc(sizeof(postfix_t));				\
+														postfix->child_1 = tmp_postfix
 
 #define CREATE_DECL_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
 														postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
 														postfix->next = tmp_postfix
 
 
-ast_node_t *parse_postfix()
+ast_node_t *parse_postfix(common_expr_t *primary_expr)
 {
 	common_expr_t *postfix, *tmp_postfix;
-	int kind;
+	type_t *base_type;
+	
+	base_type = primary_expr->type;
 
 	postfix = tmp_postfix = NULL;
 	while (1) {
 		switch (G_TK_KIND) {
 		case TK_LBRACKET:
 			NEXT_TOKEN;
-			kind = OP_ARRAY;
+			postfix->op = OP_ARRAY;
 
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
+			CREATE_EXPR_POSTFIX_NODE(tmp_postfix, postfix);
 			if (G_TK_KIND == TK_RBRACKET) {
-				postfix->expr = NULL;
+				postfix->child_2 = NULL;
+				ERROR("expected expression before ']' token");
 				break;
 			}
-			postfix->expr = parse_expr();
-			if (postfix->expr->compile_evaluated == FALSE) {
-				ERROR("expression must be constant");
+			if (base_type->kind != TYPE_ARRAY && base_type->kind == TYPE_POINTER) {
+				ERROR("subscripted value is neither array nor pointer");
 			}
-			postfix->value = postfix->expr->value;
+			postfix->child_2 = parse_expr();
+			postfix->kind = OP_ARRAY;
+			postfix->compile_evaluated = postfix->child_2->compile_evaluated;
+			postfix->value = postfix->child_2->value;
+			postfix->type = type_conv(base_type);
+			base_type = base_type->base_type;
 			break;
 		case TK_LPAREN:
 			NEXT_TOKEN;
-			kind = FUNC_POSTFIX;
+			postfix->op = OP_FUNC;
 			
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
+			CREATE_EXPR_POSTFIX_NODE(tmp_postfix, postfix);
 			if (G_TK_KIND == TK_RPAREN) {
-				postfix->expr = NULL;
+				postfix->child_2 = NULL;
 				break;
 			}
-			postfix->expr = parse_argu_expr_list();
+			postfix->child_2 = parse_argu_expr_list();
 			break;
 		case TK_DOT:
 		case TK_POINTER:
-			kind = STRCTURE_POSTFIX;
+			postfix->op = G_TK_KIND == TK_DOT ? TK_DOT : TK_POINTER;
 
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
+			CREATE_EXPR_POSTFIX_NODE(tmp_postfix, postfix);
 			postfix->op = G_TK_KIND;
 			NEXT_TOKEN;
-			postfix->ident = create_token_node();
+			if (G_TK_KIND != TK_IDENTIFIER) {
+				ERROR("expect identifer as struct number");
+			}
+			postfix->child_2 = create_token_node();
 			break;
 		case TK_INC:
 		case TK_DEC:
-			kind = INC_DEC_POSTFIX;
+			postfix->op = G_TK_KIND == TK_INC ? TK_INC : TK_DEC;
 
-			CREATE_POSTFIX_NODE(tmp_postfix, postfix);
-			postfix->op = G_TK_KIND;
+			CREATE_EXPR_POSTFIX_NODE(tmp_postfix, postfix);
 			break;
 		default:
 			return postfix;
 		}
-		postfix->kind = kind;
 		NEXT_TOKEN;
 	}
 }
 
 ast_node_t *parse_postfix_expr()
 {
-	postfix_expr_t *postfix_expr;
-	postfix_t *postfix;
+	common_expr_t *postfix_expr;
+	common_expr_t *primary_expr;
 
 	postfix_expr = (postfix_expr_t*)bcc_malloc(sizeof(postfix_expr_t));
-	postfix_expr->primary_expr = parse_primary_expr();
+	primary_expr = parse_primary_expr();
 	
-	postfix_expr->postfix = parse_postfix();
+	postfix_expr = parse_postfix(postfix_expr->child_1);
 
+	
+	
+	
 	if (postfix_expr->primary_expr->compile_evaluated
 		&& postfix_expr->postfix == NULL) {
 		postfix_expr->compile_evaluted = TRUE;
