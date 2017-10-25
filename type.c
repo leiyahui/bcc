@@ -118,6 +118,21 @@ type_t *derive_array_type(type_t *base_type, int len)
 	return new_type;
 }
 
+
+type_t *type_conv(type_t *type)
+{
+	type_t *new_type;
+	switch (type->kind)
+	{
+	case TYPE_ARRAY:
+		new_type = derive_pointer_type(type, 0);
+	case TYPE_FUNCTION:
+		new_type = derive_pointer_type(type, 0);
+	default:
+		break;
+	}
+}
+
 type_t *derive_decl_spec_type(type_t *base_type, int qual, int sign, int store_cls)
 {
 	type_t *new_type;
@@ -186,9 +201,18 @@ type_t *get_declarator_type(type_t *base_type, declarator_t *decl)
 
 	while (post) {
 		if (post->paren_or_barcket == BRACKET) {
+			if (type->kind = TYPE_FUNCTION) {
+				ERROR("declaration a array of function");
+			}
 			type = derive_array_type(type, post->const_expr->value);
 		}
 		if (post->paren_or_barcket == PAREN) {
+			if (type->kind == TYPE_FUNCTION) {
+				ERROR("declared as function returning a function");
+			}
+			if (type->kind == TYPE_ARRAY) {
+				ERROR("declared as function returning an array");
+			}
 			type = create_func_type(decl->direct_declarator->ident->tk_val.token_value.ptr, type);
 			add_param_list_to_func(type, post->param_list);
 		}

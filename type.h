@@ -105,4 +105,5 @@ type_t *get_decl_spec_type(decl_spec_t *spec);
 
 void add_declaration_to_sym_table(declaration_t *declaration);
 
+type_t *type_conv(type_t *type);
 #endif
