@@ -31,18 +31,11 @@ typedef struct _field_t {
 	struct _field_t *next;
 }field_t;
 
-typedef struct _field_list_t {
-	type_t *type;
-	field_t *head;
-	field_t *tail;
-	struct _field_list_t *next;
-}field_list_t;
-
 typedef struct _tag_type_t {
 	type_t type;
 	char *name;
-	field_list_t *head;
-	field_list_t *tail;
+	field_t *head;
+	field_t *tail;
 }tag_type_t;
 
 typedef struct _enum_t {
@@ -83,11 +76,9 @@ extern type_t *g_ty_udouble;
 
 tag_type_t* create_tag_type(char *name, int struct_or_union);
 
-field_list_t *create_field_list(type_t *type);
+void add_field_to_tag(tag_type_t *tag, type_t *type, char *name, int bits);
 
-void add_field_to_same_type_list(field_list_t *field, type_t *type, char *name, int bits);
-
-void add_field_list_to_tag(tag_type_t *tag, field_list_t *list);
+type_t *get_tag_member_type(tag_type_t *tag, char *name);
 
 function_type_t* create_func_type(char *name, type_t *ret_type);
 

@@ -10,9 +10,9 @@ struct _cond_expr_t;
 struct _declarator_t;
 struct _declaration_t;
 
-enum expr_op {
-	OP_IDENT, OP_STR, OP_EXPR, OP_CONST,		//primary expr
-	OP_FUNC, OP_ARRAY, OP_POINTER_TO, OP_CONTAIN, OP_POST_INC, OP_POST_DEC,	//postfix expr
+enum expr_kind {
+	AST_VAR, AST_STR, OP_EXPR, AST_CONST,		//primary expr
+	AST_FUNC, AST_ARRAY, AST_POINTER_TO, AST_CONTAIN, OP_POST_INC, OP_POST_DEC,	//postfix expr
 	OP_PRFIX_INC, OP_PRIFX_DEC, OP_ADDR, OP_REF, OP_UNARY_PLUS, OP_UNARY_MINUS, OP_BITREVERT, OP_NOT, //unary_expr
 	//binary expr
 	OP_MULTI, OP_DIVIDE, OP_MOD, OP_PLUS, OP_MINUS, OP_LEFT, OP_RIGHT, OP_LESS, OP_LESS_EQUAL, OP_GREAT, OP_GREAT_EQUAL, 
@@ -102,16 +102,13 @@ typedef struct _argu_expr_list_t {
 }argu_expr_list_t;
 
 
-typedef struct _common_expr_t {
+typedef struct _expr_t {
 	int kind;
-	BOOL compile_evaluated;
-	BOOL l_value;
 	double value;
 	type_t *type;
-	int op;
-	common_expr_t *child_1;
-	common_expr_t *child_2;
-}common_expr_t;
+	struct _expr_t *child_1;
+	struct _expr_t *child_2;
+}expr_t;
 
 
 #define ARRAY_POSTFIX		0

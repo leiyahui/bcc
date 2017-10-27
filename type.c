@@ -22,27 +22,7 @@ tag_type_t * create_tag_type(char * name, int struct_or_union)
 	return type;
 }
 
-void add_field_list_to_tag(tag_type_t *tag, field_list_t *list)
-{
-	if (tag->head = NULL) {
-		tag->head = tag->tail = list;
-	}
-	else {
-		tag->tail->next = list;
-		tag->tail = list;
-	}
-}
-
-field_list_t *create_field_list(type_t *type)
-{
-	field_list_t *field;
-	field = (field_list_t *)bcc_malloc(sizeof(field_list_t));
-	field->type = type;
-	field->head = field->tail = NULL;
-	return field;
-}
-
-void add_field_to_same_type_list(field_list_t *field_list, type_t *type, char *name, int bits)
+void add_field_to_tag(tag_type_t *tag, type_t *type, char *name ,int bits)
 {
 	field_t *field;
 
@@ -50,13 +30,27 @@ void add_field_to_same_type_list(field_list_t *field_list, type_t *type, char *n
 	field->name = name;
 	field->bits = bits;
 
-	if (field_list->head == NULL) {
-		field_list->head = field_list->tail = field;
+	if (tag->head == NULL) {
+		tag->head = tag->tail = field;
 	}
 	else {
-		field_list->tail->next = field;
-		field_list->tail = field;
+		tag->tail->next = field;
+		tag->tail = field;
 	}
+}
+
+type_t *get_tag_member_type(tag_type_t *tag, char *name)
+{
+	field_t *tmp_field;
+
+	tmp_field = tag->head;
+	while (tmp_field != NULL) {
+		if (tmp_field->name == name) {
+			return tmp_field->type;
+		}
+		tmp_field = tmp_field->next;
+	}
+	return NULL;
 }
 
 function_type_t* create_func_type(char * name, type_t * ret)
@@ -125,12 +119,13 @@ type_t *type_conv(type_t *type)
 	switch (type->kind)
 	{
 	case TYPE_ARRAY:
-		new_type = derive_pointer_type(type, 0);
+		new_type = derive_pointer_type(type->base_type, 0);
 	case TYPE_FUNCTION:
 		new_type = derive_pointer_type(type, 0);
 	default:
 		break;
 	}
+	return new_type;
 }
 
 type_t *derive_decl_spec_type(type_t *base_type, int qual, int sign, int store_cls)
@@ -269,13 +264,11 @@ type_t * get_struct_union_type(type_spec_t *type_spec)
 	while (declaration) {
 		decl_base_type = get_declaration_base_type(declaration);
 		declarator = declaration->declarator_list;
-		field_list = create_field_list(decl_base_type);
 		while (declarator) {
 			decl_type = get_declarator_type(decl_base_type, declarator);
-			add_field_to_same_type_list(field_list, decl_type, declarator->direct_declarator->ident->tk_val.token_value.ptr, declarator->const_expr->value);
+			add_field_to_tag(tag_type, decl_type, declarator->direct_declarator->ident->tk_val.token_value.ptr, declarator->const_expr->value);
 			declarator = declarator->next;
 		}
-		add_field_list_to_tag(tag_type, field_list);
 		declaration = declaration->next;
 	}
 
