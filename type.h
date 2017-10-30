@@ -86,6 +86,8 @@ void add_param_to_func(function_type_t *func, type_t *type, char *name);
 
 
 /*get_get*/
+type_t *derive_pointer_type(type_t *base_type, int qual);
+
 type_t *get_declaration_base_type(declaration_t *decl);
 
 type_t *get_declarator_type(type_t *base_type, declarator_t *decl);

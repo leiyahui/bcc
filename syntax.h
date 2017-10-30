@@ -12,14 +12,14 @@ struct _declaration_t;
 
 enum expr_kind {
 	AST_VAR, AST_STR, OP_EXPR, AST_CONST,		//primary expr
-	AST_FUNC, AST_ARRAY, AST_POINTER_TO, AST_CONTAIN, OP_POST_INC, OP_POST_DEC,	//postfix expr
-	OP_PRFIX_INC, OP_PRIFX_DEC, OP_ADDR, OP_REF, OP_UNARY_PLUS, OP_UNARY_MINUS, OP_BITREVERT, OP_NOT, //unary_expr
+	AST_FUNC, AST_ARRAY, AST_POINTER_TO, AST_CONTAIN, AST_POST_INC, AST_POST_DEC,	//postfix expr
+	AST_PRFIX_INC, AST_PRIFX_DEC, AST_ADDR, AST_DREF, AST_UNARY_PLUS, AST_UNARY_MINUS, AST_BITREVERT, AST_NOT, //unary_expr
 	//binary expr
-	OP_MULTI, OP_DIVIDE, OP_MOD, OP_PLUS, OP_MINUS, OP_LEFT, OP_RIGHT, OP_LESS, OP_LESS_EQUAL, OP_GREAT, OP_GREAT_EQUAL, 
-	OP_EQUAL, OP_NEQUAL, OP_BIT_AND, OP_XOR, OP_BIT_OR, OP_AND, OP_OR,
-	OP_COND_EXPR,	//condition expr
-	ASSIGN_EXPR,	//assign expr
-	COMMA_EXPR		//comma expr
+	AST_MULTI, AST_DIVIDE, AST_MOD, AST_PLUS, AST_MINUS, AST_LEFT, AST_RIGHT, AST_LESS, AST_LESS_EQUAL, AST_GREAT, AST_GREAT_EQUAL, 
+	AST_EQUAL, AST_NEQUAL, AST_BIT_AND, AST_XOR, AST_BIT_OR, AST_AND, AST_OR,
+	AST_COND_EXPR,	//condition expr
+	AST_ASSIGN_EXPR,	//assign expr
+	AST_COMMA_EXPR		//comma expr
 };
 
 typedef union _ast_node_t {
@@ -139,6 +139,7 @@ typedef struct _postfix_expr_t {
 #define TYPE_NAME		3
 
 typedef struct _type_name_t {
+	type_t *type;
 	decl_spec_t *spec_qual_list;
 	struct _declarator_t *abs_decl;
 }type_name_t;

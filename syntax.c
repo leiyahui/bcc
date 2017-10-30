@@ -233,6 +233,31 @@ expr_t *parse_struct_field(expr_t *expr)
 	return struct_field_expr;
 }
 
+BOOL is_lvaue(expr_t *expr)
+{
+	if (expr->kind == AST_VAR
+		|| expr->kind == AST_ARRAY
+		|| expr->kind == AST_POINTER_TO
+		|| expr->kind == AST_CONTAIN) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
+expr_t *parse_self_inc_dec_expr(expr_t *expr, int kind)
+{
+	expr_t *inc_expr;
+	if (!is_lvaue(expr)) {
+		ERROR("lvalue required as increment operand");
+	}
+	inc_expr = create_expr_node(kind);
+	inc_expr->child_1 = expr;
+	inc_expr->type = expr->type;
+	
+	return inc_expr;
+}
+
 ast_node_t *parse_postfix(expr_t *expr)
 {
 	while (1) {
@@ -244,18 +269,14 @@ ast_node_t *parse_postfix(expr_t *expr)
 			expr = parse_func_expr(expr);
 			break;
 		case TK_POINTER:
-			if (expr->type->kind != TYPE_POINTER
-				|| expr->type->base_type->kind != TYPE_STRUCT
-				|| expr->type->base_type->kind != TYPE_UNION) {
-				ERROR("expect pointer to struct type");
-			}
 		case TK_DOT:
+			expr = parse_struct_field(expr);
 			break;
 		case TK_INC:
+			expr = parse_self_inc_dec_expr(expr, AST_POST_INC);
+			break;
 		case TK_DEC:
-			expr->op = G_TK_KIND == TK_INC ? TK_INC : TK_DEC;
-
-			CREATE_EXPR_POSTFIX_NODE(tmp_expr, expr);
+			expr = parse_self_inc_dec_expr(expr, AST_POST_DEC);
 			break;
 		default:
 			return expr;
@@ -266,29 +287,17 @@ ast_node_t *parse_postfix(expr_t *expr)
 
 ast_node_t *parse_postfix_expr()
 {
-	common_expr_t *postfix_expr;
-	common_expr_t *primary_expr;
+	expr_t *postfix_expr;
+	expr_t *primary_expr;
 
-	postfix_expr = (postfix_expr_t*)bcc_malloc(sizeof(postfix_expr_t));
 	primary_expr = parse_primary_expr();
 	
-	postfix_expr = parse_postfix(postfix_expr->child_1);
-
-	
-	
-	
-	if (postfix_expr->primary_expr->compile_evaluated
-		&& postfix_expr->postfix == NULL) {
-		postfix_expr->compile_evaluted = TRUE;
-		postfix_expr->value = postfix_expr->primary_expr->value;
-	} else {
-		postfix_expr->compile_evaluted = FALSE;
-	}
+	postfix_expr = parse_postfix(primary_expr);
 
 	return postfix_expr;
 }
 
-ast_node_t *parse_type_name()
+type_t *parse_type_name()
 {
 	type_name_t *type_name;
 	
@@ -304,41 +313,89 @@ ast_node_t *parse_type_name()
 
 ast_node_t *parse_unary_expr()
 {
-	unary_expr_t *unary_expr;
+	expr_t *unary_expr;
+	expr_t *cast_expr;
 	type_t *type;
 	int expr_kind;
 
-	unary_expr = (unary_expr_t *)bcc_malloc(sizeof(unary_expr_t));
-	unary_expr->compile_evaluated = FALSE;
-
 	switch (G_TK_KIND) {
 	case TK_INC:
+		SKIP(TK_INC);
+		unary_expr = parse_self_inc_dec_expr(parse_unary_expr(), AST_PRFIX_INC);
+		break;
 	case TK_DEC:
-		expr_kind = UNARY_EXPR;
-		unary_expr->op = G_TK_KIND;
-		NEXT_TOKEN;
-		unary_expr->expr = parse_unary_expr();
+		SKIP(TK_DEC);
+		unary_expr = parse_self_inc_dec_expr(parse_unary_expr(), AST_PRFIX_INC);
 		break;
 	case TK_MOD:
+		SKIP(TK_MOD);
+		cast_expr = parse_cast_expr();
+		if (!is_lvaue(cast_expr)) {
+			ERROR("lvalue required as unary '&' operand");
+		}
+		unary_expr = create_expr_node(AST_ADDR);
+		unary_expr->child_1 = cast_expr;
+		unary_expr->type = derive_pointer_type(cast_expr->type, 0);
+		break;
 	case TK_MULTIPLY:
+		SKIP(TK_MULTIPLY);
+		cast_expr = parse_cast_expr();
+		if (cast_expr->type->kind != TYPE_POINTER) {
+			ERROR("expect pointer type");
+		}
+		if (cast_expr->type->base_type->kind == TYPE_FUNCTION) {
+			return cast_expr;
+		}
+		unary_expr = create_expr_node(AST_DREF);
+		unary_expr->child_1 = cast_expr;
+		unary_expr->type = cast_expr->type->base_type;
+		break;
 	case TK_ADD:
+		SKIP(TK_ADD);
+		cast_expr = parse_cast_expr();
+		if (!is_lvaue(cast_expr)) {
+			ERROR("lvalue required as unary '+' operand");
+		}
+		unary_expr = create_expr_node(AST_UNARY_PLUS);
+		unary_expr->child_1 = cast_expr;
+		unary_expr->type = cast_expr->type;
+		break;
 	case TK_SUB:
+		SKIP(TK_SUB);
+		cast_expr = parse_cast_expr();
+		if (!is_lvaue(cast_expr)) {
+			ERROR("lvalue required as unary '-' operand");
+		}
+		unary_expr = create_expr_node(AST_UNARY_MINUS);
+		unary_expr->child_1 = cast_expr;
+		unary_expr->type = cast_expr->type;
+		break;
 	case TK_BITREVERT:
+		SKIP(TK_BITREVERT);
+		cast_expr = parse_cast_expr();
+		if (!is_lvaue(cast_expr)) {
+			ERROR("lvalue required as unary '~' operand");
+		}
+		unary_expr = create_expr_node(AST_BITREVERT);
+		unary_expr->child_1 = cast_expr;
+		unary_expr->type = cast_expr->type;
+		break;
 	case TK_NOT:
-		expr_kind = CAST_EXPR;
-		unary_expr->op = G_TK_KIND;
-		NEXT_TOKEN;
-		unary_expr->expr = parse_cast_expr();
+		SKIP(TK_NOT);
+		cast_expr = parse_cast_expr();
+		if (!is_lvaue(cast_expr)) {
+			ERROR("lvalue required as unary '!' operand");
+		}
+		unary_expr = create_expr_node(AST_NOT);
+		unary_expr->child_1 = cast_expr;
+		unary_expr->type = cast_expr->type;
 		break;
 	case TK_SIZEOF:
-		unary_expr->op = G_TK_KIND;
-		NEXT_TOKEN;
+		SKIP(TK_SIZEOF);
 		if (G_TK_KIND == TK_LPAREN) {
-			expr_kind = TYPE_NAME;
 			unary_expr->expr = parse_type_name();
 			NEXT_TOKEN;
 		} else {
-			expr_kind = UNARY_EXPR;
 			unary_expr->expr = parse_unary_expr();
 		}
 		break;
@@ -684,14 +741,14 @@ decl_spec_t *create_decl_spec()
 	return decl_spec;
 }
 
-ast_node_t *parse_decl_spec(int with_store_cls)
+ast_node_t *parse_decl_spec(int can_with_store_cls)
 {	
-	decl_spec_t *decl_spec = NULL;
 	BOOL invalid_decl_spec;
-
-	decl_spec = create_decl_spec();
+	int type_spec, size, store_cls, qual, sign;
+	type_t *type, *user_def_type;
 
 	invalid_decl_spec = FALSE;
+	type_spec = store_cls = qual = sign = size = 0;
 	while (1) {
 		switch (G_TK_KIND) {
 		case TK_TYPEDEF:
@@ -699,89 +756,137 @@ ast_node_t *parse_decl_spec(int with_store_cls)
 		case TK_STATIC:
 		case TK_AUTO:
 		case TK_REGISTER:
-			if (!with_store_cls) {
+			if (!can_with_store_cls) {
 				ERROR("unexpected store class");
 			}
-			if (decl_spec->store_cls->kind == 0) {
-				decl_spec->store_cls->kind = G_TK_KIND;
-			} else {
-				ERROR("repeated storage class specifier");
+			if (store_cls) {
+				ERROR("repeated store class");
 			}
+			store_cls = G_TK_KIND;
 			break;
 		case TK_VOID:
-		case TK_CHAR:
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; break;
+		case TK_CHAR:								
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; break;
+		case TK_INT:								
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; break;
+		case TK_FLOAT:								
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; break;
+		case TK_DOUBLE:								
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; break;
 		case TK_SHORT:
-		case TK_INT:
+			if (size) ERROR("repeated type specifier"); size = G_TK_KIND; break;
 		case TK_LONG:
-		case TK_FLOAT:
-		case TK_DOUBLE:
-			if (decl_spec->type_spec->kind == 0) {
-				decl_spec->type_spec->kind = G_TK_KIND;
-			} else {
-				ERROR("repeated type specifier");
-			}
-			break;
+			if (size) ERROR("repeated type specifier"); size = G_TK_KIND; break;
 		case TK_SIGNED:
 		case TK_UNSIGNED:
-			if (decl_spec->type_spec->sign == 0) {
-				decl_spec->type_spec->sign = G_TK_KIND;
-			} else {
-				ERROR("repeated type specifier ");
-			}
+			if (sign) ERROR("repeated sign"); sign = G_TK_KIND; break; 
 		case TK_STRUCT:
 		case TK_UNION:
-			if (decl_spec->type_spec->kind = 0) {
-				decl_spec->type_spec->kind = G_TK_KIND;
-				decl_spec->type_spec->value = parse_struct_union();
-			} else {
-				ERROR("repeated type specifier");
-			}
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; user_def_type = parse_struct_declarator(); break;
 			break;
 		case TK_ENUM:
-			if (decl_spec->type_spec->kind = 0) {
-				decl_spec->type_spec->kind = G_TK_KIND;
-				decl_spec->type_spec->value = parse_enum();
-			} else {
-				ERROR("repeated type specifier");
-			}
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; user_def_type = parse_enum(); break;
 			break;
 		case TK_IDENTIFIER:
 			if (is_typedef_name(g_current_token.token_value.ptr)) {
-				if (decl_spec->type_spec->kind = 0) {
-					decl_spec->type_spec->kind = TK_IDENTIFIER;
-					decl_spec->type_spec->value = create_token_node();
-				} else {
+				if (type_spec) {
 					ERROR("repeated type specifier");
 				}
+				type_spec = G_TK_KIND;
+				user_def_type = get_user_def_type(&(g_curr_scope->tdname_head), G_TK_VALUE.ptr);
 			} else {
 				invalid_decl_spec = TRUE;
 			}
 			break;
 		case TK_CONST:
-			if (!(decl_spec->type_qual->qual | WITH_CONST)) {
-				decl_spec->type_qual->qual |= WITH_CONST;
+			if (!(qual | WITH_CONST)) {
+				qual |= WITH_CONST;
 			} else {
 				ERROR("repeated const");
 			}
 			break;
 		case TK_VOLATILE:
-			if (!(decl_spec->type_qual->qual | WITH_VOLATILE)) {
-				decl_spec->type_qual->qual |= WITH_VOLATILE;
+			if (!(qual | WITH_VOLATILE)) {
+				qual |= WITH_VOLATILE;
 			} else {
-				ERROR("repeated const");
+				ERROR("repeated voliatile");
 			}
 			break;
 		default:
 			invalid_decl_spec = TRUE;
-			break;
 		}
 		if (invalid_decl_spec) {
 			break;
 		}
 		NEXT_TOKEN;
 	}
+	if (user_def_type != NULL) {		//struct ,union , enum, typedef
+		if (sign && size) {
+			ERROR("two or more data type in type spec");
+		}
+		if (qual == 0) {
+			type = user_def_type;
+		} else {
+			switch (type_spec) {
+			case TK_STRUCT:
+			case TK_UNION:
+				type = (tag_type_t *)bcc_malloc(sizeof(tag_type_t *));
+				bcc_memcpy(type, user_def_type, sizeof(tag_type_t));
+				break;
+			case TK_TYPEDEF:
+				type = (type_t *)bcc_malloc(sizeof(type_t *));
+				*type = *user_def_type;
+				break;
+			case TK_ENUM:
+				type = (enum_t *)bcc_malloc(sizeof(enum_t *));
+				bcc_memcpy(type, user_def_type, sizeof(enum_t));
+				break;
+			}
+			type->qual = qual;
+		}
+	} else {
+		if (size == TK_SHORT && (type_spec != TK_INT && type_spec != TK_VOID)) {
+			ERROR("size and type not match");
+		}
+		if (size == TK_LONG && (type_spec != TK_VOID && type_spec != TK_INT && type_spec != TK_DOUBLE)) {
+			ERROR("size and type not match");
+		}
+		if (sign && (type_spec == TK_VOID || type_spec == TK_FLOAT || type_spec == TK_DOUBLE)) {
+			ERROR("sign and type not match");
+		}
+		if (!sign && !size && !type_spec) {
+			ERROR("with out type spec");
+		}
+
+		type = (type_t*)bcc_malloc(sizeof(type_t));
+		if (size) {
+			if (size == TK_SHORT) {
+				*type = *g_ty_short;
+			} else if (size = TK_LONG) {
+				*type = *g_ty_long;
+			}
+		} else {
+			switch (type_spec) {
+			case TK_VOID:
+				*type = *g_ty_void; break;
+			case TK_CHAR:
+				*type = *g_ty_char; break;
+			case TK_INT:
+				*type = *g_ty_int; break;
+			case TK_FLOAT:
+				*type = *g_ty_float; break;
+			case TK_DOUBLE:
+				*type = *g_ty_double; break;
+			}
+		}
+		type->sign = sign;
+		type->qual = qual;
+	}
 	
-	return decl_spec;
+	
+
+	return type;
 }
 
 ast_node_t *parse_direct_abs_declarator()

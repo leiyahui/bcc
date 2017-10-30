@@ -128,20 +128,6 @@ type_t *type_conv(type_t *type)
 	return new_type;
 }
 
-type_t *derive_decl_spec_type(type_t *base_type, int qual, int sign, int store_cls)
-{
-	type_t *new_type;
-
-	new_type->qual = qual;
-	new_type->sign = sign;
-	new_type->store_cls = store_cls;
-	new_type->align = base_type->align;
-	new_type->sign = base_type->sign;
-	new_type->kind = base_type->kind;
-
-	return new_type;
-}
-
 type_t *get_declaration_base_type(declaration_t *decl)
 {
 	type_t *type;
@@ -219,6 +205,8 @@ type_t *get_declarator_type(type_t *base_type, declarator_t *decl)
 	return type;
 }
 
+
+
 void add_declaration_to_sym_table(declaration_t *declaration)
 {
 	decl_spec_t *decl_spec;
@@ -280,48 +268,50 @@ type_t *get_decl_spec_type(decl_spec_t *spec)
 	int store_cls_tk;
 	int type_spec_tk;
 
-	type_t *base_type, *type;
-	type = base_type = NULL;
+	type_t *type;
 
 	switch (spec->type_spec->kind) {
 	case TK_VOID:
-		base_type = g_ty_void;
+		*type = *g_ty_void;
 		break;
 	case TK_CHAR:
-		base_type = g_ty_char;
+		*type = *g_ty_char;
 		break;
 	case TK_SHORT:
-		base_type = g_ty_short;
+		*type = *g_ty_short;
 		break;
 	case TK_INT:
-		base_type = g_ty_int;
+		*type = *g_ty_int;
 		break;
 	case TK_LONG:
-		base_type = g_ty_long;
+		*type = *g_ty_long;
 		break;
 	case TK_FLOAT:
-		base_type = g_ty_float;
+		*type = *g_ty_float;
 		break;
 	case TK_DOUBLE:
-		base_type = g_ty_double;
+		*type = *g_ty_double;
 		break;
 	case TK_STRUCT:
 	case TK_UNION:
-		base_type = get_struct_union_type(spec->type_spec);
+		type = get_struct_union_type(spec->type_spec);
 		break;
 	case TK_IDENTIFIER:
-		base_type = get_user_def_type(&(g_curr_scope->tdname_head), spec->type_spec->value->tk_val.token_value.ptr);
+		type = get_user_def_type(&(g_curr_scope->tdname_head), spec->type_spec->value->tk_val.token_value.ptr);
 		break;
 	default:
 		break;
 	}
 
 	if (spec->type_spec->sign) {
-		if (base_type != NULL) {
-			base_type = g_ty_int;
+		if (type == NULL) {
+			*type = *g_ty_int;
 		}
 	}
 
-	type = derive_decl_spec_type(base_type, spec->type_qual->qual, spec->type_spec->sign, spec->store_cls->kind);
+	type->qual = spec->type_qual ? spec->type_qual->qual : 0;
+	type->sign = spec->type_spec ? spec->type_spec->sign : 0;
+	type->store_cls = spec->store_cls ? spec->store_cls->kind : 0;
+	
 	return type;
 }
