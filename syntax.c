@@ -149,10 +149,6 @@ ast_node_t *parse_primary_expr()
 	return expr;
 }
 
-#define CREATE_EXPR_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
-														postfix = (common_expr_t *)bcc_malloc(sizeof(postfix_t));				\
-														postfix->child_1 = tmp_postfix
-
 #define CREATE_DECL_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
 														postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
 														postfix->next = tmp_postfix
@@ -741,7 +737,7 @@ decl_spec_t *create_decl_spec()
 	return decl_spec;
 }
 
-ast_node_t *parse_decl_spec(int can_with_store_cls)
+type_t *parse_decl_spec(int can_with_store_cls)
 {	
 	BOOL invalid_decl_spec;
 	int type_spec, size, store_cls, qual, sign;
@@ -1166,12 +1162,12 @@ ast_node_t *parse_initializer()
 	return initializer;
 }
 
-ast_node_t *parse_init_declarator()
+ast_node_t *parse_init_declarator(type_t *type)
 {
 	declarator_t *decl;
 
 	
-	decl = parse_declarator();
+	decl = parse_declarator(type);
 
 	if (G_TK_KIND == TK_ASSIGN) {
 		NEXT_TOKEN;
@@ -1195,16 +1191,17 @@ ast_node_t *parse_init_declarator_list()
 
 ast_node_t *parse_declaration()
 {
+	type_t *base_type, *type;
+
 	declaration_t *decl;
 
 	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 
-	decl->decl_spec = parse_decl_spec(TRUE);
-	decl->declarator_list = NULL;
-	decl->next = NULL;
+	base_type = parse_decl_spec(TRUE);
 
-	if (G_TK_KIND != TK_SEMICOLON) {
-		decl->declarator_list = parse_init_declarator_list();
+	parse_init_declarator(base_type);
+	while (G_TK_KIND == TK_SEMICOLON) {
+		parse_init_declarator(base_type);
 	}
 	add_declaration_to_sym_table(decl);
 	NEXT_TOKEN;
