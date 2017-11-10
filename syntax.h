@@ -79,13 +79,6 @@ typedef struct _assign_expr_t {
 	double value;
 }assign_expr_t;
 
-typedef struct _expr_t {
-	assign_expr_t *assign_expr;
-	struct _expr_t *next;
-	double value;
-	BOOL compile_evaluated;
-}expr_t;
-
 #define PRI_TOKEN	0
 #define PRI_EXPR	1
 
@@ -110,6 +103,12 @@ typedef struct _expr_t {
 	struct _expr_t *child_2;
 }expr_t;
 
+typedef struct _init_ast_node_t {
+	int kind;
+	type_t *type;
+	int offset;
+	expr_t *expr;
+}init_ast_node_t;
 
 #define ARRAY_POSTFIX		0
 #define FUNC_POSTFIX		1
@@ -217,11 +216,8 @@ typedef struct _direct_declarator_t {
 
 typedef struct _declarator_t {
 	int kind;
-	pointer_t *pointer;
-	direct_declarator_t *direct_declarator;
-	const_expr_t *const_expr;
+	char *name;
 	initializer_t *initializer;
-	struct _declarator_t *next;
 }declarator_t;
 
 #define REGULAR_DECLARATION			1 << 1
@@ -232,7 +228,6 @@ typedef struct _declaration_t {
 	int kind;
 	decl_spec_t *decl_spec;
 	declarator_t *declarator_list;
-	struct _declaration_t *next;
 }declaration_t;
 
 
@@ -348,7 +343,7 @@ ast_node_t *parse_decl_postfix();
 ast_node_t *parse_direct_declarator();
 ast_node_t *parse_argu_expr_list();
 ast_node_t *parse_pointer();
-ast_node_t *parse_declarator();
+ast_node_t *parse_declarator(type_t *base_type);
 ast_node_t *parse_initializer_list();
 ast_node_t *parse_statement();
 ast_node_t *parse_compound_statement();

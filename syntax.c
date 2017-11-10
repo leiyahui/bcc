@@ -149,11 +149,6 @@ ast_node_t *parse_primary_expr()
 	return expr;
 }
 
-#define CREATE_DECL_POSTFIX_NODE(tmp_postfix, postfix)	tmp_postfix = postfix;												\
-														postfix = (postfix_t *)bcc_malloc(sizeof(postfix_t));				\
-														postfix->next = tmp_postfix
-
-
 expr_t *parse_subscript_expr(expr_t *expr)
 {
 	expr_t *array_expr;
@@ -879,53 +874,10 @@ type_t *parse_decl_spec(int can_with_store_cls)
 		type->sign = sign;
 		type->qual = qual;
 	}
-	
-	
-
+	type->store_cls = store_cls;
 	return type;
 }
 
-ast_node_t *parse_direct_abs_declarator()
-{
-	direct_declarator_t *decl;
-
-	decl = (direct_declarator_t *)bcc_malloc(sizeof(direct_declarator_t));
-	decl->ident = decl->decl = decl->post = NULL;
-	decl->is_abs_decl = TRUE;
-
-	if (G_TK_KIND == TK_LPAREN) {
-		SAVE_CURR_COORDINATE;
-		NEXT_TOKEN;
-		if (! is_decl_spec() 
-			&& (G_TK_KIND == TK_POINTER 
-			|| G_TK_KIND == TK_LBRACKET
-			|| G_TK_KIND == TK_LPAREN)) {
-			decl->decl = parse_abs_declarator();
-			SKIP(TK_RPAREN);
-		} else {
-			BACK_TO_SAVED_COORDINATE;
-		}
-	}
-	decl->post = parse_decl_postfix();
-	return decl;
-}
-
-ast_node_t *parse_abs_declarator()
-{
-	declarator_t *decl;
-
-	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
-	decl->kind = ABS_DECLARATOR;
-
-	if (G_TK_KIND == TK_POINTER) {
-		decl->pointer = parse_pointer();
-		NEXT_TOKEN;
-	}
-	if (G_TK_KIND == TK_LPAREN
-		|| G_TK_KIND == TK_LBRACKET)
-		decl->direct_declarator = parse_direct_abs_declarator();
-	return decl;
-}
 
 #define WITHOUT_DECL		1 << 0
 #define WITH_DECL			1 << 1
@@ -951,57 +903,69 @@ int decl_type()
 	return WITH_ABSTRACT_DECL;
 }
 
-ast_node_t *parse_param_declaration()
+type_t *parse_param_declarator(type_t *base_type)
 {
-	declaration_t *param_decl;
-	int type;
+	type_t *type, *dummy_type, *real_type;
 
-	param_decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
-	param_decl->decl_spec = param_decl->declarator_list = param_decl->next = NULL;
+	type = parse_pointer(base_type);
+	
+	if (G_TK_KIND == TK_IDENTIFIER) {
+		type = parse_decl_postfix(base_type);
+	}
+	if (G_TK_KIND == TK_LPAREN) {
+		SAVE_CURR_COORDINATE;
+		SKIP(TK_LPAREN);
+		if (is_decl_spec() || G_TK_KIND == TK_RPAREN) {		//function decl
+			BACK_TO_SAVED_COORDINATE;
+			type = parse_decl_postfix(type);
+		} else {											//abstract decl
+			dummy_type = (type_t *)bcc_malloc(sizeof(type_t));
+			type = parse_param_declarator(dummy_type);			/*because we don't know base whether declarator has postfix, so we don't know its base type and we use dummy*/
+			SKIP(TK_RPAREN);
 
-	param_decl->decl_spec = parse_decl_spec(TRUE);
-	if (param_decl->decl_spec->store_cls->kind == TK_TYPEDEF) {
-		ERROR("invalid store class in param declaration");
+			real_type = parse_decl_postfix(type);
+			*dummy_type = *real_type;
+			bcc_free(real_type);
+		}
 	}
-	SAVE_CURR_COORDINATE;
-	type = decl_type();
-	BACK_TO_SAVED_COORDINATE;
-	if (type == WITH_DECL) {
-		param_decl->declarator_list = parse_declarator();
-	} else if (type == WITH_ABSTRACT_DECL) {
-		param_decl->declarator_list = parse_abs_declarator();
+	if (G_TK_KIND == TK_LBRACKET) {
+		type = parse_decl_postfix(base_type);
 	}
-	return param_decl;
+	return type;
 }
 
-ast_node_t *parse_param_list()
+void parse_param_declaration(function_type_t *func_type)
 {
-	declaration_t *param_list, *param_iter;
+	type_t *spec_type, *type;
+	declaration_t *param_decl;
 
-	param_iter = param_list = parse_param_declaration();
+	spec_type = parse_decl_spec(TRUE);
+	if (spec_type->store_cls == TK_TYPEDEF) {
+		ERROR("invalid store class in param declaration");
+	}
+	type = parse_param_declarator(spec_type);
+	add_param_to_func(func_type, type, NULL);
+}
+
+void parse_param_type_list(function_type_t *func_type)
+{
+	if (G_TK_KIND == TK_RPAREN) {
+		SKIP(TK_RPAREN);
+		return;
+	}
+	parse_param_declaration(func_type);
 	while (G_TK_KIND == TK_COMMA) {
 		NEXT_TOKEN;
 		if (G_TK_KIND == TK_ELLIPSE) {
 			break;
 		}
-		param_iter->next = parse_param_list();
-		param_iter = param_iter->next;
+		parse_param_declaration(func_type);
 	}
-	return param_list;
-}
-
-ast_node_t *parse_param_type_list()
-{
-	param_type_list_t *list;
-
-	list = (param_type_list_t *)bcc_malloc(sizeof(param_type_list_t));
-
-	list->param_list = parse_param_list();
 	if (G_TK_KIND == TK_ELLIPSE) {
-		list->with_ellipse = TRUE;
+		func_type->with_ellipse = TRUE;
 		NEXT_TOKEN;
 	}
-	return list;
+	SKIP(TK_RPAREN);
 }
 
 ast_node_t *parse_ident_list()
@@ -1020,158 +984,204 @@ ast_node_t *parse_ident_list()
 	return ident_list;
 }
 
-ast_node_t *parse_decl_postfix()
+type_t *parse_decl_postfix(type_t *base_type)
 {
-	decl_postfix_t *decl_postfix, *tmp_decl_postfix;
+	type_t *type = NULL;
+	expr_t *const_expr;
+	ast_node_t *param_list;
+	int len;
 
-	decl_postfix = tmp_decl_postfix = NULL;
-	while (1) {
-		switch (G_TK_KIND) {
-		case TK_LBRACKET:
-			NEXT_TOKEN;
-			CREATE_DECL_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
-			decl_postfix->paren_or_barcket = BRACKET;
-			if (G_TK_KIND == TK_RBRACKET) {
-				decl_postfix->next = NULL;
-				break;
-			}
-			decl_postfix->const_expr = parse_const_expr();
-			break;
-		case TK_LPAREN:
-			NEXT_TOKEN;
-			CREATE_DECL_POSTFIX_NODE(tmp_decl_postfix, decl_postfix);
-			decl_postfix->paren_or_barcket = PAREN;
-			if (G_TK_KIND == TK_RPAREN) {
-				decl_postfix->next = NULL;
-			} else if (G_TK_KIND == TK_IDENTIFIER) {
-				decl_postfix->ident_list = parse_ident_list();
-			} else {
-				decl_postfix->param_list = parse_param_type_list();
-			}
-			break;
-		default:
-			return decl_postfix;
+	switch (G_TK_KIND) {
+	case TK_LBRACKET:
+		SKIP(TK_LBRACKET);
+		if (G_TK_KIND == TK_RBRACKET) {
+			len = -1;
+		} else {
+			const_expr = parse_const_expr();
+			len = const_expr->value;
 		}
-		NEXT_TOKEN;
+		SKIP(TK_RBRACKET);
+
+		base_type = parse_decl_postfix(base_type);
+		if (type->kind == TYPE_ARRAY) {
+			ERROR("declared as function returning an array");
+		}
+		return derive_array_type(base_type, len);
+	case TK_LPAREN:
+		SKIP(TK_LPAREN);
+
+		type = create_func_type(NULL, type);
+		if (G_TK_KIND != TK_RPAREN) {
+			parse_param_type_list(type);
+		}
+		SKIP(TK_RPAREN);
+		base_type = parse_decl_postfix(base_type);
+		if (type->kind == TYPE_ARRAY) {
+			ERROR("declared as function returning an array");
+		}
+		if (type->kind = TYPE_FUNCTION) {
+			ERROR("declaration a array of function");
+		}
+		((function_type_t *)type)->ret = base_type;
+		return type;
+	default:
+		return base_type;
 	}
 }
 
-ast_node_t *parse_direct_declarator()
+int parse_qual_list()
 {
-	direct_declarator_t *direct_decl;
+	int qual = 0;
 
-	direct_decl = (direct_declarator_t *)bcc_malloc(sizeof(direct_declarator_t));
-	direct_decl->decl = direct_decl->ident = direct_decl->post = NULL;
-	direct_decl->is_abs_decl = FALSE;
+	while (G_TK_KIND == TK_VOLATILE || G_TK_KIND == TK_CONST) {
+		if (G_TK_KIND == TK_CONST) {
+			if (qual | WITH_CONST) {
+				ERROR("repeated const");
+			}
+			qual |= WITH_CONST;
+		}
+		if (G_TK_KIND == TK_VOLATILE) {
+			if (qual | WITH_VOLATILE) {
+				ERROR("repeated volatile");
+			}
+			qual |= WITH_VOLATILE;
+		}
+		NEXT_TOKEN;
+	}
+	return qual;
+}
+
+type_t *parse_pointer(type_t *base_type)
+{
+	pointer_t *type;
+
+	type = base_type;
+	while (G_TK_KIND == TK_MULTIPLY) {
+		NEXT_TOKEN;
+		type = derive_pointer_type(type, parse_qual_list());
+	}
+	return type;
+}
+
+type_t *parse_direct_declarator(type_t *base_type, char **name)
+{
+	type_t *type;
+	type_t *dummy_type, *real_type;
 
 	if (G_TK_KIND == TK_IDENTIFIER) {
-		direct_decl->ident = create_token_node();
+		*name = G_TK_VALUE.ptr;
+		type = base_type;
+		SKIP(TK_IDENTIFIER);
+		return parse_decl_postfix(type);
 	} else if (G_TK_KIND == TK_LPAREN) {
-		NEXT_TOKEN;
-		direct_decl->decl = parse_declarator();
-		NEXT_TOKEN;
+		SKIP(TK_LPAREN);
+		dummy_type = (type_t *)bcc_malloc(sizeof(type_t));
+		type = parse_declarator(dummy_type, name);			/*because we don't know base whether declarator has postfix, so we don't know its base type and we use dummy*/
+		SKIP(TK_RPAREN);
+
+		real_type = parse_decl_postfix(base_type);
+		*dummy_type = *real_type;
+		bcc_free(real_type);
+		return type;
 	} else {
 		ERROR("invalid direct declarator%d", G_TK_KIND);
 	}
-	direct_decl->post = parse_decl_postfix();
-
-	return direct_decl;
 }
 
-ast_node_t *parse_qual_list()
+type_t *parse_declarator(type_t *base_type, char** name)
 {
-	type_qual_t *type_qual_ptr = (type_qual_t *)bcc_malloc(sizeof(type_qual_t));
+	type_t *type;
 
-	type_qual_ptr->qual = 0;
-	while (G_TK_KIND == TK_VOLATILE || G_TK_KIND == TK_CONST) {
-		if (type_qual_ptr == NULL) {
-			type_qual_ptr = bcc_malloc(sizeof(type_qual_t));
+	type = parse_pointer(base_type);
+	type = parse_direct_declarator(type, name);
+	
+	return type;
+}
+
+type_t *parse_direct_abs_declarator(type_t *base_type)
+{
+	type_t *type, *dummy_type, *tmp_type;
+	if (G_TK_KIND == TK_LPAREN) {
+		SAVE_CURR_COORDINATE;
+		SKIP(TK_LPAREN);
+		if ((G_TK_KIND == TK_POINTER
+				|| G_TK_KIND == TK_LBRACKET
+				|| G_TK_KIND == TK_LPAREN)) {
+			type = parse_abs_declarator(base_type);
+			dummy_type = (type_t *)bcc_malloc(sizeof(type_t));
+			type = parse_abs_declarator(dummy_type);			/*because we don't know base whether declarator has postfix, so we don't know its base type and we use dummy*/
+			SKIP(TK_RPAREN);
+
+			tmp_type = parse_decl_postfix(base_type);
+			*dummy_type = *tmp_type;
+			bcc_free(tmp_type);
+			return type;
 		}
-		if (G_TK_KIND == TK_CONST) {
-			if (type_qual_ptr->qual | WITH_CONST) {
-				ERROR("repeated const");
-			}
-			type_qual_ptr->qual |= WITH_CONST;
+		else {
+			BACK_TO_SAVED_COORDINATE;
 		}
-		if (G_TK_KIND == TK_VOLATILE) {
-			if (type_qual_ptr->qual | WITH_VOLATILE) {
-				ERROR("repeated volatile");
-			}
-			type_qual_ptr->qual |= WITH_VOLATILE;
-		}
-		NEXT_TOKEN;
 	}
-	return type_qual_ptr;
+	type = parse_decl_postfix(base_type);
 }
 
-ast_node_t *parse_pointer()
+type_t *parse_abs_declarator(type_t *base_type)
 {
-	pointer_t *pointer = NULL;
-
-	if (G_TK_KIND == TK_MULTIPLY) {
-		pointer = (pointer_t *)bcc_malloc(sizeof(pointer_t));
-		pointer->type_qual_ptr = pointer->next = NULL;
-		NEXT_TOKEN;
-		pointer->type_qual_ptr = parse_qual_list();
-		pointer->next = parse_pointer();
+	type_t *type;
+	type = parse_pointer(base_type);
+	if (G_TK_KIND == TK_LPAREN || G_TK_KIND == TK_LBRACKET) {
+		type = parse_direct_abs_declarator(type);
 	}
-	return pointer;
+	return type;
 }
 
-ast_node_t *parse_declarator()
+void  parse_initializer_list(vector_t *init_node_list, type_t *type, int offset)
 {
-	declarator_t *decl;
-
-	decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
-	decl->pointer = decl->direct_declarator = NULL;
-	decl->kind = DECLARATOR;
-
-	decl->pointer = parse_pointer();
-	decl->direct_declarator = parse_direct_declarator();
-	return decl;
-}
-
-ast_node_t *parse_initializer_list()
-{
-	initializer_t *init_list, *init_iter;
-
-	init_iter = init_list = parse_initializer();
+	parse_initializer(init_node_list, type, 0);
 	while (G_TK_KIND == TK_COMMA) {
 		NEXT_TOKEN;
-		init_iter->next = parse_initializer_list();
-		init_iter = init_iter->next;
+		parse_initializer(init_node_list, type, 0);
 	}
-	return init_list;
 }
 
-ast_node_t *parse_initializer()
+ast_node_t *parse_initializer(vector_t *init_node_list, type_t *type, int offset)
 {
-	initializer_t *initializer;
-
-	initializer = (initializer_t *)bcc_malloc(sizeof(initializer_t));
-	initializer->assign_expr = initializer->initialier_list = initializer->next = NULL;
+	init_ast_node_t *init_node;
+	expr_t *expr;
 	if (G_TK_KIND == TK_LBRACE) {
 		NEXT_TOKEN;
-		initializer->initialier_list = parse_initializer_list();
+		parse_initializer_list(init_node_list, type, offset);
 		if (G_TK_KIND == TK_COMMA) {
 			NEXT_TOKEN;
 		}
 		NEXT_TOKEN;
 	}
-	initializer->assign_expr = parse_assign_expr();
-	return initializer;
+
+	expr = parse_assign_expr();
+	init_node = (init_ast_node_t *)bcc_malloc(sizeof(init_ast_node_t));
+	init_node = init_node->expr = expr;
+	init_node->offset = offset;
+	insert_vector(init_node_list, init_node);
 }
 
-ast_node_t *parse_init_declarator(type_t *type)
+ast_node_t *parse_init_declarator(type_t *spec_type)
 {
-	declarator_t *decl;
-
+	type_t *type;
+	expr_t *expr;
+	vector_t *decl_init_ast;
+	char *name;
 	
-	decl = parse_declarator(type);
+	type = parse_declarator(spec_type, &name);
+
+	if (spec_type->store_cls == TK_TYPEDEF) {
+		insert_to_user_define_type(g_curr_scope->tdname_tail, name, type, TRUE);
+	} else {
+		insert_to_sym_table(g_curr_scope->sym_tail, name, type);
+	}
 
 	if (G_TK_KIND == TK_ASSIGN) {
 		NEXT_TOKEN;
-		decl->initializer = parse_initializer();
+		decl_init_ast = create_vector(10);
+		expr = parse_initializer(decl_init_ast, type, 0);
 	}
 	return decl;
 }
@@ -1193,17 +1203,12 @@ ast_node_t *parse_declaration()
 {
 	type_t *base_type, *type;
 
-	declaration_t *decl;
-
-	decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
-
 	base_type = parse_decl_spec(TRUE);
 
 	parse_init_declarator(base_type);
 	while (G_TK_KIND == TK_SEMICOLON) {
 		parse_init_declarator(base_type);
 	}
-	add_declaration_to_sym_table(decl);
 	NEXT_TOKEN;
 	return decl;
 }
