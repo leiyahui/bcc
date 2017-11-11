@@ -1134,36 +1134,100 @@ type_t *parse_abs_declarator(type_t *base_type)
 	return type;
 }
 
-void  parse_initializer_list(vector_t *init_node_list, type_t *type, int offset)
+init_ast_node_t *create_init_ast_node(expr_t *expr, int offset)
 {
-	parse_initializer(init_node_list, type, 0);
+	init_ast_node_t *init_node;
+
+	init_node = (init_ast_node_t *)bcc_malloc(sizeof(init_ast_node_t));
+	init_node->expr = expr;
+	init_node->offset = offset;
+
+	return init_node;
+}
+
+void parse_struct_initializer_list(vector_t *init_node_list, tag_type_t *type, int offset)
+{
+	field_t *field;
+	type_t *field_type;
+	field = type->head;
+	while (field) {
+		field_type = field->type;
+		parse_initializer(init_node_list, field_type, offset);
+		offset += field_type->size;
+	}
+}
+
+void parse_init_array_string(vector_t *init_node_list, type_t *type, int offset)
+{
+	init_ast_node_t *init_node;
+	expr_t *expr;
+	int str_len, i;
+
+	str_len = strlen(TK_VALUE_PTR(G_TK_VALUE)) + 1;
+	if (type->size == -1) {
+		type->size = str_len;
+	}
+	for (i = 0; i <= str_len; i++) {
+		if (i <= type->size) {
+			expr = create_expr_node(AST_CONST);
+			expr->value = TK_VALUE_INT(G_TK_VALUE);
+			expr->type = g_ty_char;
+			create_init_ast_node(expr, offset + i);
+			insert_vector(init_node_list, init_node);
+		}
+		else {
+			WARN("excess elements in scalar initializer");
+			break;
+		}
+	}
+}
+
+void parse_array_initializer_lsit(vector_t *init_node_list, type_t *type, int offset)
+{
+	type_t *base_type;
+	int i;
+
+	base_type = type->base_type;
+	parse_initializer(init_node_list, base_type, offset);
+	i = 0;
 	while (G_TK_KIND == TK_COMMA) {
 		NEXT_TOKEN;
-		parse_initializer(init_node_list, type, 0);
+		i++;
+		parse_initializer(init_node_list, base_type, offset + base_type->size * i);
 	}
+	if (type->size == -1) {
+		type->size = i;
+	}
+
 }
 
 ast_node_t *parse_initializer(vector_t *init_node_list, type_t *type, int offset)
 {
 	init_ast_node_t *init_node;
 	expr_t *expr;
+	int i, str_len;
+
 	if (G_TK_KIND == TK_LBRACE) {
 		NEXT_TOKEN;
-		parse_initializer_list(init_node_list, type, offset);
+		if (type->kind == TYPE_STRUCT) {
+			parse_struct_initializer_list(init_node_list, type, offset);
+		} else if (type->kind = TYPE_ARRAY){
+			parse_initializer_list(init_node_list, type, offset);
+		}
 		if (G_TK_KIND == TK_COMMA) {
 			NEXT_TOKEN;
 		}
-		NEXT_TOKEN;
+		SKIP(TK_RBRACE);
+	} else if (G_TK_KIND == TK_STRING && type->kind == TYPE_ARRAY){
+		parse_init_array_string(init_node_list, type, offset);
+	} else {
+		expr = parse_assign_expr();
+		create_init_ast_node(expr, offset);
+		insert_vector(init_node_list, init_node);
 	}
-
-	expr = parse_assign_expr();
-	init_node = (init_ast_node_t *)bcc_malloc(sizeof(init_ast_node_t));
-	init_node = init_node->expr = expr;
-	init_node->offset = offset;
-	insert_vector(init_node_list, init_node);
 }
 
-ast_node_t *parse_init_declarator(type_t *spec_type)
+vector_t *parse_init_declarator(type_t *spec_type)
 {
 	type_t *type;
 	expr_t *expr;
@@ -1183,20 +1247,7 @@ ast_node_t *parse_init_declarator(type_t *spec_type)
 		decl_init_ast = create_vector(10);
 		expr = parse_initializer(decl_init_ast, type, 0);
 	}
-	return decl;
-}
-
-ast_node_t *parse_init_declarator_list()
-{
-	declarator_t *list, *list_iter;
-
-	list = list_iter = parse_init_declarator();
-	while (G_TK_KIND == TK_COMMA) {
-		NEXT_TOKEN;
-		list_iter->next = parse_init_declarator_list();
-		list_iter = list_iter->next;
-	}
-	return list;
+	return decl_init_ast;
 }
 
 ast_node_t *parse_declaration()
@@ -1209,8 +1260,7 @@ ast_node_t *parse_declaration()
 	while (G_TK_KIND == TK_SEMICOLON) {
 		parse_init_declarator(base_type);
 	}
-	NEXT_TOKEN;
-	return decl;
+	SKIP(TK_SEMICOLON);
 }
 
 BOOL is_decl_spec() {
