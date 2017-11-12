@@ -290,19 +290,30 @@ ast_node_t *parse_postfix_expr()
 
 type_t *parse_type_name()
 {
-	type_name_t *type_name;
+	type_t *type;
 	
-	type_name = (type_name_t *)bcc_malloc(sizeof(type_name_t));
-	
-	type_name->spec_qual_list = parse_decl_spec(FALSE);
+	type = parse_decl_spec(FALSE);
 
 	if (G_TK_KIND != TK_RPAREN) {
-		type_name->abs_decl = parse_abs_declarator();
+		type = parse_abs_declarator(type);
 	}
-	return type_name;
+	return type;
 }
 
-ast_node_t *parse_unary_expr()
+type_t *parse_sizeof_expr()
+{
+	type_t *type;
+	if (G_TK_KIND == TK_LPAREN) {
+		SKIP(TK_LPAREN)
+		type = parse_type_name();
+		SKIP(TK_RPAREN)
+	} else {
+		type = parse_unary_expr()->type;
+	}
+	return type;
+}
+
+expr_t *parse_unary_expr()
 {
 	expr_t *unary_expr;
 	expr_t *cast_expr;
@@ -383,15 +394,9 @@ ast_node_t *parse_unary_expr()
 		break;
 	case TK_SIZEOF:
 		SKIP(TK_SIZEOF);
-		if (G_TK_KIND == TK_LPAREN) {
-			unary_expr->child_1 = parse_type_name();
-			NEXT_TOKEN;
-		} else {
-			unary_expr->child_1 = parse_unary_expr();
-		}
 		unary_expr = create_expr_node(AST_SIZEOF);
 		unary_expr->type = g_ty_uint;
-		unary_expr->value = unary_expr->type->size;
+		unary_expr->value = parse_sizeof_expr()->size;
 		break;
 	default:
 		unary_expr = parse_postfix_expr();
