@@ -426,7 +426,52 @@ expr_t *parse_cast_expr()
 	return parse_unary_expr();
 }
 
+expr_t *parse_multi_expr()
+{
+	expr_t *multi_expr, *child_1, *child_2;
 
+	multi_expr = child_1 = parse_cast_expr();
+	while (G_TK_KIND == TK_MULTIPLY || G_TK_KIND == TK_DIVIDE || G_TK_KIND == TK_MOD) {
+		switch (G_TK_KIND)
+		{
+		case TK_MULTIPLY:
+			multi_expr = create_expr_node(AST_MULTI);
+			break;
+		case TK_DIVIDE:
+			multi_expr = create_expr_node(AST_DIVIDE);
+			break;
+		case TK_MOD:
+			multi_expr = create_expr_node(AST_MOD);
+			break;
+		}
+		multi_expr->child_1 = child_1;
+		multi_expr->child_2 = parse_multi_expr();
+		child_1 = multi_expr;
+	}
+	return multi_expr;
+}
+
+expr_t *parse_addit_expr()
+{
+	expr_t *addit_expr, *child_1, *child_2;
+
+	addit_expr = child_1 = parse_cast_expr();
+	while (G_TK_KIND == TK_ADD || G_TK_KIND == TK_SUB) {
+		switch (G_TK_KIND)
+		{
+		case TK_ADD:
+			addit_expr = create_expr_node(AST_ADD);
+			break;
+		case TK_SUB:
+			addit_expr = create_expr_node(AST_SUB);
+			break;
+		}
+		addit_expr->child_1 = child_1;
+		addit_expr->child_2 = parse_addit_expr();
+		child_1 = addit_expr;
+	}
+	return addit_expr;
+}
 
 ast_node_t *parse_cond_expr()
 {
