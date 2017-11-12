@@ -405,7 +405,7 @@ expr_t *parse_unary_expr()
 	return unary_expr;
 }
 
-ast_node_t *parse_cast_expr()
+expr_t *parse_cast_expr()
 {
 	expr_t *cast_expr;
 	
@@ -416,6 +416,7 @@ ast_node_t *parse_cast_expr()
 			cast_expr = create_expr_node(AST_CAST);
 			cast_expr->child_1 = parse_type_name();
 			SKIP(TK_RPAREN);
+			cast_expr->type = cast_expr->child_1;
 			cast_expr->child_2 = parse_cast_expr();
 			return cast_expr;
 		}
@@ -425,58 +426,6 @@ ast_node_t *parse_cast_expr()
 	return parse_unary_expr();
 }
 
-int get_binary_op_prec(int tk) {
-
-	switch (tk) {
-	case TK_OR:
-		return 1;
-	case TK_AND:
-		return 2;
-	case TK_BITOR:
-		return 3;
-	case TK_BITXOR:
-		return 4;
-	case TK_BITAND:
-		return 5;
-	case TK_NEQUAL:
-	case TK_EQUAL:
-		return 6;
-	case TK_LESS:
-	case TK_LESS_EQUAL:
-	case TK_GREAT:
-	case TK_GREAT_EQUAL:
-		return 7;
-	case TK_LSHIFT:
-	case TK_RSHIFT:
-		return 8;
-	case TK_ADD:
-	case TK_SUB:
-		return 9;
-	case TK_MULTIPLY:
-	case TK_DIVIDE:
-	case TK_MOD:
-		return 10;
-	default:
-		return 0;
-	}
-}
-
-ast_node_t *parse_binary_expr(int prev_prec)
-{
-	binary_expr_t *binary_expr;
-	unary_expr_t *unary_expr;
-	int curr_prec;
-
-	unary_expr = parse_cast_expr();
-	while (get_binary_op_prec(G_TK_KIND) >= prev_prec) {
-		binary_expr = (binary_expr_t *)bcc_malloc(sizeof(binary_expr_t));
-		binary_expr->op1 = unary_expr;
-		binary_expr->op = G_TK_KIND;
-		binary_expr->op2 = parse_binary_expr(curr_prec + 1);
-		unary_expr = binary_expr;
-	}
-	return unary_expr;
-}
 
 
 ast_node_t *parse_cond_expr()
