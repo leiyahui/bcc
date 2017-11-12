@@ -384,20 +384,19 @@ ast_node_t *parse_unary_expr()
 	case TK_SIZEOF:
 		SKIP(TK_SIZEOF);
 		if (G_TK_KIND == TK_LPAREN) {
-			unary_expr->expr = parse_type_name();
+			unary_expr->child_1 = parse_type_name();
 			NEXT_TOKEN;
 		} else {
-			unary_expr->expr = parse_unary_expr();
+			unary_expr->child_1 = parse_unary_expr();
 		}
+		unary_expr = create_expr_node(AST_SIZEOF);
+		unary_expr->type = g_ty_uint;
+		unary_expr->value = unary_expr->type->size;
 		break;
 	default:
-		expr_kind = POSTFIX_EXPR;
-		unary_expr->expr = parse_postfix_expr();
+		unary_expr = parse_postfix_expr();
 	}
-	unary_expr->compile_evaluated = unary_expr->expr->compile_evaluated;
-	unary_expr->value = unary_expr->expr->value;
 
-	unary_expr->expr_kind = expr_kind;
 	return unary_expr;
 }
 
