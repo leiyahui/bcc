@@ -402,16 +402,22 @@ ast_node_t *parse_unary_expr()
 
 ast_node_t *parse_cast_expr()
 {
-	cast_expr_t *cast_expr;
-
-	cast_expr = (cast_expr_t *)bcc_malloc(sizeof(cast_expr_t));
+	expr_t *cast_expr;
+	
 	if (G_TK_KIND == TK_LPAREN) {
-		cast_expr->type_name = parse_type_name();
-		SKIP(TK_RPAREN);
+		SAVE_CURR_COORDINATE;
+		SKIP(TK_LPAREN);
+		if (is_decl_spec()) {
+			cast_expr = create_expr_node(AST_CAST);
+			cast_expr->child_1 = parse_type_name();
+			SKIP(TK_RPAREN);
+			cast_expr->child_2 = parse_cast_expr();
+			return cast_expr;
+		}
+		BACK_TO_SAVED_COORDINATE;
 	}
-	cast_expr->type_name = parse_unary_expr();
 
-	return cast_expr;
+	return parse_unary_expr();
 }
 
 int get_binary_op_prec(int tk) {
