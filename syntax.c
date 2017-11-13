@@ -329,8 +329,8 @@ expr_t *parse_unary_expr()
 		SKIP(TK_DEC);
 		unary_expr = parse_self_inc_dec_expr(parse_unary_expr(), AST_PRFIX_INC);
 		break;
-	case TK_MOD:
-		SKIP(TK_MOD);
+	case TK_BITAND:
+		SKIP(TK_BITAND);
 		cast_expr = parse_cast_expr();
 		if (!is_lvaue(cast_expr)) {
 			ERROR("lvalue required as unary '&' operand");
