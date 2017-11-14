@@ -6,7 +6,7 @@ type_t *g_ty_short = &(type_t) { TYPE_SHORT, 2, 2, TRUE };
 type_t *g_ty_int = &(type_t) { TYPE_INT, 4, 4, TRUE };
 type_t *g_ty_long = &(type_t) { TYPE_LONG, 8, 8, TRUE };
 type_t *g_ty_float = &(type_t) { TYPE_FLOAT, 4, 4, TRUE };
-type_t *g_ty_double = &(type_t) { TYPE_VOID, 8, 8, TRUE };
+type_t *g_ty_double = &(type_t) { TYPE_DOUBLE, 8, 8, TRUE };
 type_t *g_ty_uchar = &(type_t) { TYPE_CHAR, 1, 1, FALSE };
 type_t *g_ty_ushort = &(type_t) { TYPE_SHORT, 2, 2, FALSE };
 type_t *g_ty_uint = &(type_t) { TYPE_INT, 4, 4, FALSE };
@@ -314,4 +314,12 @@ type_t *get_decl_spec_type(decl_spec_t *spec)
 	type->store_cls = spec->store_cls ? spec->store_cls->kind : 0;
 	
 	return type;
+}
+
+void arithmetric_conv(expr_t *l_expr, expr_t *r_expr)
+{
+	type_t *l_type, *r_type;
+	l_type = l_expr->type;
+	r_type = r_expr->type;
+	if (l_expr->type->kind = TYP)
 }

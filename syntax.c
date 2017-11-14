@@ -64,11 +64,20 @@ BOOL is_typedef_name(char *name)
 
 #define SAVE_CURR_COORDINATE	g_recorded_coord.g_cursor = G_CURSOR;				\
 								g_recorded_coord.line = G_LINE;						\
-								g_recorded_coord.colum = G_COLUM;
+								g_recorded_coord.colum = G_COLUM
 
 #define BACK_TO_SAVED_COORDINATE	G_CURSOR = g_recorded_coord.g_cursor;			\
 									G_LINE	 = g_recorded_coord.line;				\
-									G_COLUM  = g_recorded_coord.colum;
+									G_COLUM  = g_recorded_coord.colum
+
+token_t* peek()
+{
+	SAVE_CURR_COORDINATE;								
+	NEXT_TOKEN;										
+	BACK_TO_SAVED_COORDINATE;
+	return &g_current_token;
+}
+
 ast_node_t *create_token_node()
 {
 	ast_node_t *node;
@@ -279,11 +288,8 @@ ast_node_t *parse_postfix(expr_t *expr)
 ast_node_t *parse_postfix_expr()
 {
 	expr_t *postfix_expr;
-	expr_t *primary_expr;
-
-	primary_expr = parse_primary_expr();
 	
-	postfix_expr = parse_postfix(primary_expr);
+	postfix_expr = parse_postfix(parse_primary_expr());
 
 	return postfix_expr;
 }
@@ -303,13 +309,12 @@ type_t *parse_type_name()
 type_t *parse_sizeof_expr()
 {
 	type_t *type;
-	if (G_TK_KIND == TK_LPAREN) {
+	if (G_TK_KIND == TK_LPAREN && is_decl_spec(peek())) {
 		SKIP(TK_LPAREN)
 		type = parse_type_name();
-		SKIP(TK_RPAREN)
-	} else {
-		type = parse_unary_expr()->type;
+		SKIP(TK_RPAREN);
 	}
+	type = parse_unary_expr()->type;
 	return type;
 }
 
@@ -401,7 +406,6 @@ expr_t *parse_unary_expr()
 	default:
 		unary_expr = parse_postfix_expr();
 	}
-
 	return unary_expr;
 }
 
@@ -409,18 +413,14 @@ expr_t *parse_cast_expr()
 {
 	expr_t *cast_expr;
 	
-	if (G_TK_KIND == TK_LPAREN) {
-		SAVE_CURR_COORDINATE;
+	if (G_TK_KIND == TK_LPAREN && is_decl_spec(peek())) {
 		SKIP(TK_LPAREN);
-		if (is_decl_spec()) {
-			cast_expr = create_expr_node(AST_CAST);
-			cast_expr->child_1 = parse_type_name();
-			SKIP(TK_RPAREN);
-			cast_expr->type = cast_expr->child_1;
-			cast_expr->child_2 = parse_cast_expr();
-			return cast_expr;
-		}
-		BACK_TO_SAVED_COORDINATE;
+		cast_expr = create_expr_node(AST_CAST);
+		cast_expr->child_1 = parse_type_name();
+		SKIP(TK_RPAREN);
+		cast_expr->type = cast_expr->child_1;
+		cast_expr->child_2 = parse_cast_expr();
+		return cast_expr;
 	}
 
 	return parse_unary_expr();
@@ -1267,29 +1267,29 @@ ast_node_t *parse_declaration()
 	SKIP(TK_SEMICOLON);
 }
 
-BOOL is_decl_spec() {
-	if (G_TK_KIND == TK_TYPEDEF
-		|| G_TK_KIND == TK_EXTERN
-		|| G_TK_KIND == TK_STATIC
-		|| G_TK_KIND == TK_AUTO
-		|| G_TK_KIND == TK_REGISTER
-		|| G_TK_KIND == TK_VOID
-		|| G_TK_KIND == TK_CHAR
-		|| G_TK_KIND == TK_SHORT
-		|| G_TK_KIND == TK_INT
-		|| G_TK_KIND == TK_LONG
-		|| G_TK_KIND == TK_FLOAT
-		|| G_TK_KIND == TK_DOUBLE
-		|| G_TK_KIND == TK_SIGNED
-		|| G_TK_KIND == TK_UNSIGNED
-		|| G_TK_KIND == TK_STRUCT
-		|| G_TK_KIND == TK_ENUM
-		|| G_TK_KIND == TK_CONST
-		|| G_TK_KIND == TK_VOLATILE) {
+BOOL is_decl_spec(token_t *token) {
+	if (token->tk_kind== TK_TYPEDEF
+		|| token->tk_kind == TK_EXTERN
+		|| token->tk_kind == TK_STATIC
+		|| token->tk_kind == TK_AUTO
+		|| token->tk_kind == TK_REGISTER
+		|| token->tk_kind == TK_VOID
+		|| token->tk_kind == TK_CHAR
+		|| token->tk_kind == TK_SHORT
+		|| token->tk_kind == TK_INT
+		|| token->tk_kind == TK_LONG
+		|| token->tk_kind == TK_FLOAT
+		|| token->tk_kind == TK_DOUBLE
+		|| token->tk_kind == TK_SIGNED
+		|| token->tk_kind == TK_UNSIGNED
+		|| token->tk_kind == TK_STRUCT
+		|| token->tk_kind == TK_ENUM
+		|| token->tk_kind == TK_CONST
+		|| token->tk_kind == TK_VOLATILE) {
 		return TRUE;
 	}
-	if (G_TK_KIND == TK_IDENTIFIER) {
-		if (is_typedef_name(g_current_token.token_value.ptr)) {
+	if (token->tk_kind == TK_IDENTIFIER) {
+		if (is_typedef_name(token->token_value.ptr)) {
 			return TRUE;
 		}
 	}
@@ -1301,7 +1301,7 @@ ast_node_t *parse_declaration_list()
 	declaration_t *list;
 	list = parse_declaration();
 	
-	if (is_decl_spec()) {
+	if (is_decl_spec(&g_current_token)) {
 		list->next = parse_declaration_list();
 	}
 	return list;
@@ -1514,7 +1514,7 @@ ast_node_t *parse_compound_statement()
 		ERROR("expect '{'");
 	}
 	SKIP(TK_LBRACE);			
-	if (is_decl_spec()) {
+	if (is_decl_spec(&g_current_token)) {
 		comp_state->decl_list = parse_declaration_list();
 	}
 	comp_state->decl_list = parse_statement_list();
@@ -1533,7 +1533,7 @@ ast_node_t *parse_external_decl()
 
 	decl = func_def = decl_spec = declarator = NULL;
 
-	if (is_decl_spec()) {
+	if (is_decl_spec(&g_current_token)) {
 		decl_spec = parse_decl_spec(TRUE);
 	}
 
@@ -1547,11 +1547,11 @@ ast_node_t *parse_external_decl()
 		decl->declarator_list = declarator;
 		external_decl->decl = decl;
 		external_decl->kind = DECLARATION;
-	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec()) {
+	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec(&g_current_token)) {
 		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		func_def->decl_spec = decl_spec;
 		func_def->decl = declarator;
-		if (is_decl_spec()) {
+		if (is_decl_spec(&g_current_token)) {
 			func_def->decl_list = parse_declaration_list();
 			EXPECT(TK_LBRACE);
 		}
