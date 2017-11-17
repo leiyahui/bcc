@@ -112,6 +112,13 @@ type_t *derive_array_type(type_t *base_type, int len)
 	return new_type;
 }
 
+type_t *do_integer_promotion(type_t *type)
+{
+	if (type->size <= 4) {		//int size
+		return g_ty_int;
+	}
+	return type;
+}
 
 type_t *type_conv(type_t *type)
 {
@@ -119,13 +126,12 @@ type_t *type_conv(type_t *type)
 	switch (type->kind)
 	{
 	case TYPE_ARRAY:
-		new_type = derive_pointer_type(type->base_type, 0);
+		return derive_pointer_type(type->base_type, 0);
 	case TYPE_FUNCTION:
-		new_type = derive_pointer_type(type, 0);
+		return derive_pointer_type(type, 0);
 	default:
-		break;
+		return do_integer_promotion(type);
 	}
-	return new_type;
 }
 
 type_t *get_declaration_base_type(declaration_t *decl)

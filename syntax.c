@@ -426,27 +426,145 @@ expr_t *parse_cast_expr()
 	return parse_unary_expr();
 }
 
+BOOL is_integer_type(type_t *type)
+{
+	if (type->kind == TYPE_CHAR || type->kind == TYPE_SHORT || type->kind == TYPE_INT || type->kind == TYPE_LONG) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_floating_type(type_t *type)
+{
+	if (type->kind == TYPE_FLOAT || type->kind == TYPE_DOUBLE) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_arith_type(type_t *type)
+{
+	if (is_integer_type(type) || is_floating_type(type)) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_pointer_type(type_t *type)
+{
+	if (type->kind == TYPE_POINTER) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_valid_both_pointer_bin_op(int ast_kind)
+{
+	if (ast_kind == AST_SUB || ast_kind == AST_LESS || ast_kind == AST_GREAT
+		|| ast_kind == AST_EQUAL || ast_kind == AST_NEQUAL
+		|| ast_kind == AST_GREAT_EQUAL || ast_kind == AST_LESS_EQUAL) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_valid_l_pointer_bin_op(int ast_kind)
+{
+	if (ast_kind == AST_ADD || ast_kind == AST_SUB || ast_kind == AST_LEFT || ast_kind == AST_RIGHT
+		|| ast_kind == AST_BIT_AND || AST_BIT_AND == AST_BIT_OR) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+void binary_operand_check(int ast_kind, expr_t *child_1, expr_t *child_2)
+{
+	type_t *type1, *type2;
+	type1 = child_1->type; type2 = child_2->type;
+	if (is_pointer_type(type1) && is_pointer_type(type2)) {
+		if (!is_valid_both_pointer_bin_op(ast_kind)) {
+			ERROR("invalid pointer arith");
+		}
+		return;
+	}
+	if (is_pointer_type(type1)) {
+		if (!is_valid_l_pointer_bin_op(ast_kind) || !is_arith_type(type2)) {
+			ERROR("invalid pointer arith");
+		}
+		return;
+	}
+	if (is_pointer_type(type2)) {
+		ERROR("invalid pointer arith");
+		return;
+	}
+	if (!is_arith_type(type1) || !is_arith_type(type2)) {
+		ERROR("invalid arith type");
+	}
+	
+}
+
+type_t *usual_arith_conv(type_t *type1, type_t *type2)
+{
+	type_t *new_type;
+	new_type = (type_t *)bcc_malloc(sizeof(type_t));
+	if (type1->kind == TYPE_DOUBLE || type2->kind == TYPE_DOUBLE) {
+		*new_type = *g_ty_double;
+		return new_type;
+	}
+	if (type1->kind == TYPE_FLOAT || type2->kind == TYPE_FLOAT) {
+		*new_type = *g_ty_float;
+		return new_type;
+	}
+	if (type1->kind == TYPE_LONG && type1->sign == FALSE
+		|| type2->kind == TYPE_LONG && type2->sign == FALSE) {
+		*new_type = *g_ty_ulong;
+		return new_type;
+	}
+	if (type1->kind == TYPE_LONG && type1->kind == TYPE_LONG) {
+		*new_type = *g_ty_long;
+		return new_type;
+	}
+	if (type1->kind == TYPE_INT && type1->size == FALSE
+		|| type2->kind == TYPE_INT && type2->size == FALSE) {
+		*new_type = *g_ty_uint;
+		return new_type;
+	}
+	*new_type = *g_ty_int;
+
+	return new_type;
+}
+
+expr_t *create_binary_expr(int ast_kind, expr_t *child_1, expr_t *child_2)
+{
+	expr_t *expr;
+
+	expr = create_expr_node(ast_kind);
+	expr->child_1 = child_1;
+	expr->child_2 = child_2;
+	expr->type = usual_arith_conv(child_1, child_2);
+	return expr;
+}
+
 expr_t *parse_multi_expr()
 {
-	expr_t *multi_expr, *child_1, *child_2;
+	expr_t *multi_expr, *child1, *child2;
 
-	multi_expr = child_1 = parse_cast_expr();
+	multi_expr = parse_cast_expr();
 	while (G_TK_KIND == TK_MULTIPLY || G_TK_KIND == TK_DIVIDE || G_TK_KIND == TK_MOD) {
-		switch (G_TK_KIND)
-		{
-		case TK_MULTIPLY:
-			multi_expr = create_expr_node(AST_MULTI);
-			break;
-		case TK_DIVIDE:
-			multi_expr = create_expr_node(AST_DIVIDE);
-			break;
-		case TK_MOD:
-			multi_expr = create_expr_node(AST_MOD);
-			break;
+		child1 = multi_expr;
+		child2 = parse_cast_expr();
+
+		if (G_TK_KIND == TK_MOD) {
+			if (!is_integer_type(child1) || !is_integer_type(child2)) {
+				ERROR("invalid operand");
+			}
+		} else {
+			if (!is_arith_type(child1) || !is_arith_type(child2)) {
+				ERROR("invalid operand");
+			}
 		}
-		multi_expr->child_1 = child_1;
-		multi_expr->child_2 = parse_multi_expr();
-		child_1 = multi_expr;
+
+		multi_expr = create_binary_expr(G_TK_KIND, child1, child2);
 	}
 	return multi_expr;
 }
@@ -455,20 +573,12 @@ expr_t *parse_addit_expr()
 {
 	expr_t *addit_expr, *child_1, *child_2;
 
-	addit_expr = child_1 = parse_cast_expr();
+	addit_expr = parse_multi_expr();
 	while (G_TK_KIND == TK_ADD || G_TK_KIND == TK_SUB) {
-		switch (G_TK_KIND)
-		{
-		case TK_ADD:
-			addit_expr = create_expr_node(AST_ADD);
-			break;
-		case TK_SUB:
-			addit_expr = create_expr_node(AST_SUB);
-			break;
-		}
-		addit_expr->child_1 = child_1;
-		addit_expr->child_2 = parse_addit_expr();
 		child_1 = addit_expr;
+		child_2 = parse_multi_expr();
+
+		addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
 	}
 	return addit_expr;
 }
@@ -873,6 +983,8 @@ type_t *parse_decl_spec(int can_with_store_cls)
 				*type = *g_ty_float; break;
 			case TK_DOUBLE:
 				*type = *g_ty_double; break;
+			default:
+				*type = *g_ty_int; break;
 			}
 		}
 		type->sign = sign;
