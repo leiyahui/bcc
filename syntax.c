@@ -458,6 +458,14 @@ BOOL is_pointer_type(type_t *type)
 	return FALSE;
 }
 
+BOOL is_compitable_ptr(type_t *type1, type_t *type2)
+{
+	if (type1->base_type->kind == type2->base_type->kind) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL is_valid_both_pointer_bin_op(int ast_kind)
 {
 	if (ast_kind == AST_SUB || ast_kind == AST_LESS || ast_kind == AST_GREAT
@@ -541,7 +549,6 @@ expr_t *create_binary_expr(int ast_kind, expr_t *child_1, expr_t *child_2)
 	expr = create_expr_node(ast_kind);
 	expr->child_1 = child_1;
 	expr->child_2 = child_2;
-	expr->type = usual_arith_conv(child_1, child_2);
 	return expr;
 }
 
@@ -565,6 +572,7 @@ expr_t *parse_multi_expr()
 		}
 
 		multi_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		multi_expr->type = usual_arith_conv(child1, child2);
 	}
 	return multi_expr;
 }
@@ -577,8 +585,36 @@ expr_t *parse_addit_expr()
 	while (G_TK_KIND == TK_ADD || G_TK_KIND == TK_SUB) {
 		child_1 = addit_expr;
 		child_2 = parse_multi_expr();
-
-		addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+		if (is_arith_type(child_1) && is_arith_type(child_2)) {
+			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+			addit_expr->type = usual_arith_conv(child_1, child_2);
+			continue;
+		}
+		if (is_pointer_type(child_1) && is_pointer_type(child_2)) {
+			if (G_TK_KIND != TK_SUB) {
+				ERROR("invalid operand");
+			}
+			if (!is_compitable_ptr(child_1, child_2)) {
+				ERROR("invalid operand");
+			}
+			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+			addit_expr->type = g_ty_int;
+			continue;
+		}
+		if (is_pointer_type(child_1) && is_integer_type(child_2)) {
+			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+			addit_expr->type = child_1->type;
+			continue;
+		}
+		if (is_integer_type(child_1) && is_pointer_type(child_2)) {
+			if (G_TK_KIND == TK_SUB) {
+				ERROR("invalid operand");
+			}
+			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+			addit_expr->type = child_2->type;
+			continue;
+		}
+		ERROR("invalid operand");
 	}
 	return addit_expr;
 }

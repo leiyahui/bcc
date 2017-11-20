@@ -321,11 +321,3 @@ type_t *get_decl_spec_type(decl_spec_t *spec)
 	
 	return type;
 }
-
-void arithmetric_conv(expr_t *l_expr, expr_t *r_expr)
-{
-	type_t *l_type, *r_type;
-	l_type = l_expr->type;
-	r_type = r_expr->type;
-	if (l_expr->type->kind = TYP)
-}
