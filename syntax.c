@@ -458,12 +458,11 @@ BOOL is_pointer_type(type_t *type)
 	return FALSE;
 }
 
-BOOL is_compitable_ptr(type_t *type1, type_t *type2)
+BOOL is_compatible_ptr(type_t *type1, type_t *type2)
 {
-	if (type1->base_type->kind == type2->base_type->kind) {
-		return TRUE;
+	if (type1->kind != type2->kind) {
+		return FALSE;
 	}
-	return FALSE;
 }
 
 BOOL is_valid_both_pointer_bin_op(int ast_kind)
@@ -594,7 +593,7 @@ expr_t *parse_addit_expr()
 			if (G_TK_KIND != TK_SUB) {
 				ERROR("invalid operand");
 			}
-			if (!is_compitable_ptr(child_1, child_2)) {
+			if (!is_compatible_ptr(child_1, child_2)) {
 				ERROR("invalid operand");
 			}
 			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
@@ -617,6 +616,23 @@ expr_t *parse_addit_expr()
 		ERROR("invalid operand");
 	}
 	return addit_expr;
+}
+
+expr_t *parse_shift_epxr()
+{
+	expr_t *shift_expr, *child1, *child2;
+
+	shift_expr = parse_addit_expr();
+	while (G_TK_KIND == TK_LSHIFT || G_TK_KIND == TK_RSHIFT) {
+		child1 = shift_expr;
+		child2 = parse_addit_expr();
+		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+			ERROR("invalid operands");
+		}
+		shift_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		shift_expr->type = child1->type;
+	}
+	return shift_expr;
 }
 
 ast_node_t *parse_cond_expr()
