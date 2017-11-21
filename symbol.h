@@ -38,6 +38,10 @@ void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t
 
 void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef);
 
+BOOL is_curr_scope_define_type(user_df_ty_table_t *ty_table, char *name);
+
+BOOL is_ances_scope_define_type(user_df_ty_table_t *ty_table, char *name);
+
 BOOL is_user_define_type(user_df_ty_table_t *ty_table, char *name);
 
 BOOL in_symbol_table(symbol_table_t*sym_tb, char *name);

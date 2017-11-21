@@ -29,10 +29,9 @@ void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef)
 	g_sym_tb->list_tail->next = new_sym;
 	g_sym_tb->list_tail = new_sym;
 }
-
-BOOL is_user_define_type(user_df_ty_table_t *ty_table, char* name)
+BOOL is_curr_scope_define_type(user_df_ty_table_t *ty_table, char *name)
 {
-	user_define_type_t *iter_type;    
+	user_define_type_t *iter_type;
 
 	iter_type = ty_table->list_head;
 	while (iter_type != NULL) {
@@ -41,6 +40,22 @@ BOOL is_user_define_type(user_df_ty_table_t *ty_table, char* name)
 		}
 		iter_type = iter_type->next;
 	}
+	return FALSE;
+}
+
+BOOL is_user_define_type(user_df_ty_table_t *ty_table, char* name)
+{
+	if (is_curr_scope_define_type(ty_table, name)) {
+		return TRUE;
+	}
+	if (ty_table->parent) {
+		return is_user_define_type(ty_table->parent, name);
+	}
+	return FALSE;
+}
+
+BOOL is_ances_scope_define_type(user_df_ty_table_t *ty_table, char *name)
+{
 	if (ty_table->parent) {
 		return is_user_define_type(ty_table->parent, name);
 	}
