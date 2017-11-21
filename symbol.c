@@ -1,17 +1,6 @@
 #include "bcc.h"
 
-scope_t *g_curr_scope;
-
-void init_g_scope()
-{
-	g_curr_scope->lables_tail = &g_curr_scope->lables_head;
-	g_curr_scope->tags_tail = &g_curr_scope->tags_head;
-	g_curr_scope->tdname_tail = &g_curr_scope->tdname_head;
-	g_curr_scope->sym_tail = &g_curr_scope->sym_head;
-	g_curr_scope->parent = NULL;
-}
-
-void insert_to_user_define_type(user_define_type_t *space_tail, char *name, type_t *type, BOOL has_declarator)
+void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declarator)
 {
 	user_define_type_t *new_type;
 
@@ -22,10 +11,11 @@ void insert_to_user_define_type(user_define_type_t *space_tail, char *name, type
 	new_type->has_declarator = has_declarator;
 	new_type->next = NULL;
 
-	space_tail->next = new_type;
+	ty_table->list_tail->next = new_type;
+	ty_table->list_tail = new_type;
 }
 
-void insert_to_sym_table(symbol_t *sym_tail, char *name, type_t *type)
+void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef)
 {
 	symbol_t *new_sym;
 
@@ -33,63 +23,92 @@ void insert_to_sym_table(symbol_t *sym_tail, char *name, type_t *type)
 
 	new_sym->name = name;
 	new_sym->type = type;
+	new_sym->is_typedef = is_typedef;
 	new_sym->next = NULL;
-	
-	sym_tail->next = new_sym;
+
+	g_sym_tb->list_tail->next = new_sym;
+	g_sym_tb->list_tail = new_sym;
 }
 
-BOOL in_curr_user_define_type(user_define_type_t *type_head, char* name)
+BOOL is_user_define_type(user_df_ty_table_t *ty_table, char* name)
 {
-	user_define_type_t *iter_type;
+	user_define_type_t *iter_type;    
 
-	iter_type = type_head->next;
+	iter_type = ty_table->list_head;
 	while (iter_type != NULL) {
 		if (iter_type->name == name) {
 			return TRUE;
 		}
 		iter_type = iter_type->next;
 	}
-
+	if (ty_table->parent) {
+		return is_user_define_type(ty_table->parent, name);
+	}
 	return FALSE;
 }
 
-BOOL in_symbol_table(symbol_t *sym_head, char *name)
+BOOL in_symbol_table(symbol_table_t *sym_tb, char *name)
 {
 	symbol_t *iter_sym;
 
-	iter_sym = sym_head->next;
+	iter_sym = sym_tb->list_head;
 	while (iter_sym != NULL) {
 		if (iter_sym->name == name) {
 			return TRUE;
 		}
 	}
-
+	if (sym_tb->parent) {
+		return in_symbol_table(sym_tb->parent, name);
+	}
+	
 	return FALSE;
 }
 
-type_t *get_user_def_type(user_define_type_t *type_head, char *name)
+type_t *get_user_def_type(user_df_ty_table_t *ty_table, char *name)
 {
 	user_define_type_t *iter_type;
 
-	iter_type = type_head->next;
+	iter_type = ty_table->list_head;
 	while (iter_type != NULL) {
-		if (iter_type == name) {
+		if (iter_type->name == name) {
 			return iter_type->type;
 		}
 		iter_type = iter_type->next;
 	}
+	if (ty_table->parent) {
+		return get_user_def_type(ty_table->parent, name);
+	}
 	return NULL;
 }
 
-type_t *get_symbol_type(symbol_t *sym_head, char *name)
+symbol_t *get_symbol(symbol_table_t *sym_table, char *name)
 {
 	symbol_t *iter_sym;
 
-	iter_sym = sym_head->next;
+	iter_sym = sym_table->list_head;
+	while (iter_sym != NULL) {
+		if (iter_sym->name == name) {
+			return iter_sym;
+		}
+	}
+	if (sym_table->parent) {
+		return get_symbol(sym_table->parent, name);
+	}
+	return NULL;
+}
+
+type_t *get_symbol_type(symbol_table_t *sym_table, char *name)
+{
+	symbol_t *iter_sym;
+
+	iter_sym = sym_table->list_head;
 	while (iter_sym != NULL) {
 		if (iter_sym->name == name) {
 			return iter_sym->type;
 		}
+	}
+	if (sym_table->parent) {
+		return get_symbol_type(sym_table->parent, name);
 	}
 	return NULL;
 }
