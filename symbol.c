@@ -8,7 +8,7 @@ void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t
 
 	new_type->name = name;
 	new_type->type = type;
-	new_type->has_declarator = has_declarator;
+	new_type->has_declaration = has_declarator;
 	new_type->next = NULL;
 
 	ty_table->list_tail->next = new_type;
@@ -77,6 +77,23 @@ BOOL in_symbol_table(symbol_table_t *sym_tb, char *name)
 	}
 	
 	return FALSE;
+}
+
+user_df_ty_table_t *get_user_def(user_df_ty_table_t *ty_table, char *name)
+{
+	user_define_type_t *iter_type;
+
+	iter_type = ty_table->list_head;
+	while (iter_type != NULL) {
+		if (iter_type->name == name) {
+			return iter_type;
+		}
+		iter_type = iter_type->next;
+	}
+	if (ty_table->parent) {
+		return get_user_def_type(ty_table->parent, name);
+	}
+	return NULL;
 }
 
 type_t *get_user_def_type(user_df_ty_table_t *ty_table, char *name)

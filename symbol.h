@@ -19,7 +19,7 @@ typedef struct _symbol_table_t {
 typedef struct _user_define_type_t {				// including tags, statement_labels, typedef name
 	char *name;
 	type_t *type;
-	BOOL has_declarator;				//user defined type may only define a type name,but declarator
+	BOOL has_declaration;				//user defined type may only define a type name,but declarator
 	struct _user_define_type_t *next;
 }user_define_type_t;
 
@@ -34,7 +34,7 @@ extern symbol_table_t *g_sym_tb;		//variable and typedef name
 extern user_df_ty_table_t *g_lables_tb;
 extern user_df_ty_table_t *g_tag_tb;
 
-void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declarator);
+void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declaration);
 
 void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef);
 
@@ -46,9 +46,11 @@ BOOL is_user_define_type(user_df_ty_table_t *ty_table, char *name);
 
 BOOL in_symbol_table(symbol_table_t*sym_tb, char *name);
 
+user_df_ty_table_t *get_user_def(user_df_ty_table_t *ty_table, char *name);
+
 type_t *get_user_def_type(user_df_ty_table_t *ty_table, char *name);
 
 symbol_t *get_symbol(symbol_table_t *sym_table, char *name);
 
-type_t *get_symbol_type(symbol_table_t*sym_tb, char *name);
+type_t *get_symbol_type(symbol_table_t* sym_tb, char *name);
 #endif

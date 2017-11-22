@@ -9,33 +9,11 @@ double			g_curr_expr_value;
 
 BOOL is_typedef_name(char *name)
 {
-	scope_t *scope;
-	BOOL typedefed;
-	int level;
-
-	level = 0;
-	typedefed = FALSE;
-	scope = g_curr_scope;
-	while (scope != NULL) {
-		level++;
-		if (in_curr_user_define_type(&(scope->tdname_head), name)) {
-			typedefed = TRUE;
-			break;
-		}
-		scope = scope->parent;
+	symbol_t *sym = get_symbol(g_sym_tb, name);
+	if (sym && sym->is_typedef) {
+		return TRUE;
 	}
-	if (typedefed == TRUE) {
-		scope = g_curr_scope;
-		while (level > 1) {
-			if (in_curr_user_define_type(&(scope->sym_head), name)) {
-				typedefed = FALSE;
-				break;
-			}
-			level--;
-			scope = scope->parent;
-		}
-	}
-	return typedefed;
+	return FALSE;
 }
 
 
@@ -106,10 +84,10 @@ ast_node_t *parse_primary_expr()
 	if (G_TK_KIND == TK_IDENTIFIER) {
 		create_expr_node(AST_VAR);
 		expr->child_1 = create_token_node();
-		if (!in_symbol_table(&G_SCOPE(sym_head), G_TK_VALUE.ptr)) {
+		if (!in_symbol_table(g_sym_tb, G_TK_VALUE.ptr)) {
 			ERROR("Undeclare varible %s", G_TK_VALUE.ptr);
 		}
-		expr->type = get_symbol_type(&G_SCOPE(sym_head), G_TK_VALUE.ptr);
+		expr->type = get_symbol_type(g_sym_tb, G_TK_VALUE.ptr);
 		NEXT_TOKEN;
 		return expr;
 	}
@@ -458,6 +436,28 @@ BOOL is_pointer_type(type_t *type)
 	return FALSE;
 }
 
+BOOL is_struct_type(type_t *type)
+{
+	if (type->kind == TYPE_STRUCT) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_same_struct_type(type_t *type1, type_t *type2)
+{
+	if (!is_struct_type(type1) || !is_struct_type(type2)) {
+		return FALSE;
+	}
+
+	
+}
+
+BOOL is_compatible_struct(type_t *type)
+{
+
+}
+
 BOOL is_compatible_ptr(type_t *type1, type_t *type2)
 {
 	if (type1->kind != type2->kind) {
@@ -734,92 +734,82 @@ ast_node_t *parse_const_expr()
 
 /*parse statement*/
 
-ast_node_t *parse_struct_declarator()
+void parse_struct_declarator(tag_type_t *tag_type, type_t *base_type)
 {
-	declarator_t *struct_decl;
-
-	struct_decl = (declarator_t *)bcc_malloc(sizeof(declarator_t));
-	struct_decl->next = NULL;
-
-	if (G_TK_KIND != TK_COLON) {
-		struct_decl->pointer = parse_pointer();
-		struct_decl->direct_declarator = parse_direct_declarator();
-		if (G_TK_KIND == TK_COLON) {
-			SKIP(TK_COLON);
-			struct_decl->const_expr = parse_const_expr();
-		}
-	} else {
+	type_t *field_ty;
+	char *name;
+	int bits;
+	expr_t *const_expr;
+	field_ty = parse_declarator(base_type, &name);
+	bits = -1;
+	if (G_TK_KIND == TK_COLON) {
 		SKIP(TK_COLON);
-		struct_decl->const_expr = parse_const_expr();
+		const_expr = parse_const_expr();
+		bits = const_expr->value;
 	}
-	return struct_decl;
+	add_field_to_tag(tag_type, field_ty, name, bits);
 }
 
-ast_node_t *parse_struct_declarator_list()
+void parse_struct_declaration(tag_type_t *tag_type)
 {
-	declarator_t *list, *list_iter;
-	
-	list = list_iter = parse_struct_declarator();
+	type_t *base_type, *type;
 
+	base_type = parse_decl_spec(FALSE);
+
+	parse_struct_declarator(tag_type, base_type);
 	while (G_TK_KIND == TK_COMMA) {
-		list_iter->next = parse_struct_declarator();
-		list_iter = list_iter->next;
+		parse_struct_declarator(tag_type, base_type);
 	}
-	NEXT_TOKEN;
-	return list;
+	SKIP(TK_SEMICOLON);
 }
 
-ast_node_t *parse_struct_declaration()
-{
-	declaration_t *struct_decl;
-
-	struct_decl = (declaration_t * *)bcc_malloc(sizeof(declaration_t));
-	struct_decl->decl_spec = parse_decl_spec(FALSE);
-	struct_decl->declarator_list = parse_struct_declarator_list();
-	struct_decl->next = NULL;
-
-	return struct_decl;
-}
-
-ast_node_t *parse_struct_declaration_list()
+void parse_struct_declaration_list(tag_type_t *type)
 {
 	declaration_t *list, *list_iter;
 	
-	list = list_iter = parse_struct_declaration();
+	parse_struct_declaration(type);
 	while (G_TK_KIND != TK_RBRACE) {
-		list_iter->next = parse_struct_declaration();
-		list_iter = list_iter->next;
+		parse_struct_declaration(type);
 	}
-	NEXT_TOKEN;
-	return list;
-
 }
 
-ast_node_t *parse_struct_union()
+type_t *parse_struct_union()
 {
-	struct_or_union_spec_t *struct_union;
+	int struct_or_union, has_declaration;
+	char *tag_name;
+	type_t *tag_type;
+	user_define_type_t *before_type;
 
-	struct_union = (struct_or_union_spec_t*)bcc_malloc(sizeof(struct_or_union_spec_t));
-	struct_union->ident = NULL;
-	struct_union->s_or_u = G_TK_KIND;
-
+	struct_or_union = (G_TK_KIND == TK_STRUCT) ? TYPE_STRUCT : TYPE_UNION;
 	NEXT_TOKEN;
-	if (G_TK_KIND == TK_LBRACE) {
-		NEXT_TOKEN;
-		struct_union->struct_decl = parse_struct_declaration_list();
-		NEXT_TOKEN;
-	} else if (G_TK_KIND == TK_IDENTIFIER) {
-		struct_union->ident = create_token_node();
-		NEXT_TOKEN;
-		if (G_TK_KIND == TK_LBRACE) {
-			NEXT_TOKEN;
-			struct_union->struct_decl = parse_struct_declaration_list();
-			NEXT_TOKEN;
-		}
-	} else {
-		ERROR("expect '{' or identifier");
+
+	tag_name = NULL;
+	if (G_TK_KIND == TK_IDENTIFIER) {
+		tag_name = G_TK_VALUE.ptr;
+		SKIP(TK_IDENTIFIER);
 	}
-	return struct_union;
+
+	has_declaration = (peek()->tk_kind == TK_LBRACE) ? TRUE : FALSE;
+	if (tag_name) {
+		if (is_curr_scope_define_type(g_tag_tb, tag_name)) {
+			before_type = get_user_def(g_tag_tb, tag_name);
+			if (before_type->type->kind != struct_or_union) {
+				ERROR("defined as wrong kind of tag");
+			}
+			if (before_type->has_declaration == TRUE && has_declaration) {
+				ERROR("redefinition tag");
+			}
+		}
+	}
+	tag_type = create_tag_type(tag_name, struct_or_union);
+	if (tag_name) {
+		insert_to_user_define_type(g_tag_tb, tag_name, tag_type, has_declaration);
+	}
+	if (has_declaration) {
+		SKIP(TK_LBRACE);
+		parse_struct_declaration_list(tag_type);
+	}
+	return tag_type;
 }
 
 ast_node_t *parse_enumerator()
@@ -940,7 +930,7 @@ type_t *parse_decl_spec(int can_with_store_cls)
 			if (sign) ERROR("repeated sign"); sign = G_TK_KIND; break; 
 		case TK_STRUCT:
 		case TK_UNION:
-			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; user_def_type = parse_struct_declarator(); break;
+			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; user_def_type = parse_struct_union(); break;
 			break;
 		case TK_ENUM:
 			if (type_spec) ERROR("repeated type specifier"); type_spec = G_TK_KIND; user_def_type = parse_enum(); break;
@@ -951,7 +941,7 @@ type_t *parse_decl_spec(int can_with_store_cls)
 					ERROR("repeated type specifier");
 				}
 				type_spec = G_TK_KIND;
-				user_def_type = get_user_def_type(&(g_curr_scope->tdname_head), G_TK_VALUE.ptr);
+				user_def_type = get_symbol_type(g_sym_tb, g_current_token.token_value.ptr);
 			} else {
 				invalid_decl_spec = TRUE;
 			}
@@ -1400,15 +1390,13 @@ vector_t *parse_init_declarator(type_t *spec_type)
 	type_t *type;
 	expr_t *expr;
 	vector_t *decl_init_ast;
+	BOOL is_typedef;
 	char *name;
 	
 	type = parse_declarator(spec_type, &name);
 
-	if (spec_type->store_cls == TK_TYPEDEF) {
-		insert_to_user_define_type(g_curr_scope->tdname_tail, name, type, TRUE);
-	} else {
-		insert_to_sym_table(g_curr_scope->sym_tail, name, type);
-	}
+	is_typedef = (spec_type->store_cls == TK_TYPEDEF) ? TRUE : FALSE;
+	insert_to_sym_table(name, type, is_typedef);
 
 	if (G_TK_KIND == TK_ASSIGN) {
 		NEXT_TOKEN;
@@ -1425,7 +1413,7 @@ ast_node_t *parse_declaration()
 	base_type = parse_decl_spec(TRUE);
 
 	parse_init_declarator(base_type);
-	while (G_TK_KIND == TK_SEMICOLON) {
+	while (G_TK_KIND == TK_COMMA) {
 		parse_init_declarator(base_type);
 	}
 	SKIP(TK_SEMICOLON);
