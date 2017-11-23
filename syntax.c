@@ -444,18 +444,9 @@ BOOL is_struct_type(type_t *type)
 	return FALSE;
 }
 
-BOOL is_same_struct_type(type_t *type1, type_t *type2)
+BOOL is_compatible_struct(tag_type_t *type1, tag_type_t *type2)
 {
-	if (!is_struct_type(type1) || !is_struct_type(type2)) {
-		return FALSE;
-	}
-
-	
-}
-
-BOOL is_compatible_struct(type_t *type)
-{
-
+	return type1 == type2;
 }
 
 BOOL is_compatible_ptr(type_t *type1, type_t *type2)
@@ -740,12 +731,20 @@ void parse_struct_declarator(tag_type_t *tag_type, type_t *base_type)
 	char *name;
 	int bits;
 	expr_t *const_expr;
-	field_ty = parse_declarator(base_type, &name);
+
+	field_ty = NULL;
+	if (G_TK_KIND != TK_COLON) {
+		field_ty = parse_declarator(base_type, &name);
+	}
+
 	bits = -1;
 	if (G_TK_KIND == TK_COLON) {
 		SKIP(TK_COLON);
 		const_expr = parse_const_expr();
 		bits = const_expr->value;
+	}
+	if (!field_ty || bits == -1) {
+		ERROR("invalid struct declaration");
 	}
 	add_field_to_tag(tag_type, field_ty, name, bits);
 }
@@ -790,17 +789,23 @@ type_t *parse_struct_union()
 	}
 
 	has_declaration = (peek()->tk_kind == TK_LBRACE) ? TRUE : FALSE;
-	if (tag_name) {
-		if (is_curr_scope_define_type(g_tag_tb, tag_name)) {
-			before_type = get_user_def(g_tag_tb, tag_name);
-			if (before_type->type->kind != struct_or_union) {
-				ERROR("defined as wrong kind of tag");
-			}
-			if (before_type->has_declaration == TRUE && has_declaration) {
-				ERROR("redefinition tag");
-			}
+	if (tag_name && is_curr_scope_define_type(g_tag_tb, tag_name)) {
+		before_type = get_user_def(g_tag_tb, tag_name);
+		if (before_type->type->kind != struct_or_union) {
+			ERROR("defined as wrong kind of tag");
 		}
+		if (before_type->has_declaration == TRUE && has_declaration) {
+			ERROR("redefinition tag");
+		}
+		if (has_declaration) {
+			SKIP(TK_LBRACE);
+			before_type->has_declaration = TRUE;
+			parse_struct_declaration_list(before_type->type);
+			return before_type->type;
+		}
+		return before_type->type;
 	}
+
 	tag_type = create_tag_type(tag_name, struct_or_union);
 	if (tag_name) {
 		insert_to_user_define_type(g_tag_tb, tag_name, tag_type, has_declaration);
