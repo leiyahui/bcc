@@ -449,6 +449,55 @@ BOOL is_compatible_struct(tag_type_t *type1, tag_type_t *type2)
 	return type1 == type2;
 }
 
+BOOL is_compatible_function(function_type_t *type1, function_type_t *type2)
+{
+	int i;
+	param_type_t *param_1, *param_2;
+
+	if (!is_compatible_type(type1->ret, type2->ret)
+		|| type1->param_count != type2->param_count) {
+		return FALSE;
+	}
+	i = 0;
+	param_1 = type1->head;
+	param_2 = type2->head;
+	while (i < type1->param_count) {
+		if (!is_compatible_type(param_1->type, param_2->type)) {
+			return FALSE;
+		}
+		param_1 = param_1->next;
+		param_2 = param_2->next;
+	}
+	return TRUE;
+}
+
+BOOL is_compatible_array(type_t *type1, type_t *type2)
+{
+	if (type1->size != type2->size) {
+		return FALSE;
+	}
+	return is_compatible_array(type1->base_type, type2->base_type);
+}
+
+BOOL is_compatible_type(type_t *type1, type_t *type2)
+{
+	if (type1->kind != type2->kind) {
+		return FALSE;
+	}
+	switch (type1->kind)
+	{
+	case TYPE_ARRAY:
+		return is_compatible_array(type1, type2);
+	case TYPE_FUNCTION:
+		return is_compatible_function(type1, type2);
+	case TYPE_STRUCT:
+	case TYPE_UNION:
+		return is_compatible_struct(type1, type2);
+	default:
+		return TRUE;
+	}
+}
+
 BOOL is_compatible_ptr(type_t *type1, type_t *type2)
 {
 	if (type1->kind != type2->kind) {

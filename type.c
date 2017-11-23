@@ -61,6 +61,7 @@ function_type_t* create_func_type(char * name, type_t * ret)
 	type->name = name;
 	type->ret = ret;
 	type->head = type->tail = NULL;
+	type->param_count = 0;
 	return type;
 }
 
@@ -72,6 +73,7 @@ void add_param_to_func(function_type_t *func, type_t *type, char *name)
 	param->name = name;
 	param->type = type;
 	param->next = NULL;
+	func->param_count++;
 
 	if (func->head = NULL) {
 		func->head = func->tail = param;
