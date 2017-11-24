@@ -493,6 +493,8 @@ BOOL is_compatible_type(type_t *type1, type_t *type2)
 	case TYPE_STRUCT:
 	case TYPE_UNION:
 		return is_compatible_struct(type1, type2);
+	case TYPE_POINTER:
+		return is_compatible_ptr(type1, type2);
 	default:
 		return TRUE;
 	}
@@ -674,6 +676,25 @@ expr_t *parse_shift_epxr()
 		shift_expr->type = child1->type;
 	}
 	return shift_expr;
+}
+
+expr_t *parse_realtional_expr()
+{
+	expr_t *rela_expr, *child1, *child2;
+
+	rela_expr = parse_shift_epxr();
+	while (G_TK_KIND == TK_LESS || G_TK_KIND == TK_LESS_EQUAL
+		|| G_TK_KIND == TK_GREAT || G_TK_KIND == TK_GREAT_EQUAL) {
+		child2 == parse_shift_epxr();
+		if (!is_arith_type(child1) || !is_arith_type(child2)
+			&& !is_compatible_ptr(child1, child2)) {
+			ERROR("invalid operands");
+		}
+		
+		rela_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		rela_expr->type = child1->type;
+	}
+	return rela_expr;
 }
 
 ast_node_t *parse_cond_expr()
