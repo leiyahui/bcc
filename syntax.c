@@ -500,9 +500,10 @@ BOOL is_compatible_type(type_t *type1, type_t *type2)
 
 BOOL is_compatible_ptr(type_t *type1, type_t *type2)
 {
-	if (type1->kind != type2->kind) {
+	if (type1->kind != TYPE_POINTER || type2->kind != TYPE_POINTER) {
 		return FALSE;
 	}
+	return is_compatible_type(type1, type2);
 }
 
 BOOL is_valid_both_pointer_bin_op(int ast_kind)
