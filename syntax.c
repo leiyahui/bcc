@@ -824,24 +824,36 @@ expr_t *parse_logic_or_expr()
 	return logic_or;
 }
 
-ast_node_t *parse_cond_expr()
+cond_expr_t *parse_cond_expr()
 {
-	cond_expr_t *cond_expr;
+	cond_expr_t *cond_expr, *child_cond_expr;
+	expr_t *logic_or_expr, *expr;
 
-	cond_expr = (cond_expr_t *)bcc_malloc(sizeof(cond_expr_t));
-	cond_expr->logic_or_expr = parse_binary_expr(0);
-	cond_expr->expr = cond_expr->cond_expr = NULL;
+	logic_or_expr = parse_logic_or_expr();
 
 	if (G_TK_KIND == TK_QUESTION) {
-		NEXT_TOKEN;
-		cond_expr->expr = parse_expr();
-		if (G_TK_KIND != TK_COLON) {
-			ERROR("expect: :");
+		cond_expr = bcc_malloc(sizeof(cond_expr_t));
+		cond_expr->logical_or = logic_or_expr;
+		if (!is_scalar_type(logic_or_expr)) {
+			ERROR("The first expression shall be scalar type");
 		}
-		NEXT_TOKEN;
-		cond_expr->cond_expr = parse_cond_expr();
+		cond_expr->expr.child_1 = parse_expr();
+		if (G_TK_KIND != TK_COLON) {
+			ERROR("expect colon");
+		}
+		SKIP(TK_COLON);
+		cond_expr->expr.child_2 = parse_cond_expr();
+		if (is_arith_type(cond_expr->expr.child_1) && is_arith_type(cond_expr->expr.child_2)
+			|| is_pointer_type(cond_expr->expr.child_1) && is_pointer_type(cond_expr->expr.child_2)
+			|| is_pointer_type(cond_expr->expr.child_1) && is_null_pointer(cond_expr->expr.child_2)
+			|| is_null_pointer(cond_expr->expr.child_1) && is_pointer_type(cond_expr->expr.child_2)
+			|| is_compatible_struct(cond_expr->expr.child_1, cond_expr->expr.child_2)) {
+			return cond_expr;
+		} else {
+			ERROR("invalid operand");
+		}
 	}
-	return cond_expr;
+	return logic_or_expr;
 }
 
 /*

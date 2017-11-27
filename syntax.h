@@ -104,6 +104,11 @@ typedef struct _expr_t {
 	struct _expr_t *child_2;
 }expr_t;
 
+typedef struct _cond_expr_t {
+	expr_t expr;
+	expr_t *logical_or;
+}cond_expr_t;
+
 typedef struct _init_ast_node_t {
 	int kind;
 	type_t *type;
@@ -111,109 +116,8 @@ typedef struct _init_ast_node_t {
 	expr_t *expr;
 }init_ast_node_t;
 
-#define ARRAY_POSTFIX		0
-#define FUNC_POSTFIX		1
-#define STRCTURE_POSTFIX	2
-#define INC_DEC_POSTFIX		3
-
-
-typedef struct _postfix_t {
-	int kind;
-	int op;
-	expr_t *expr;
-	ast_node_t *ident;
-	struct _postfix_t *next;
-	double value;
-}postfix_t;
-
-typedef struct _postfix_expr_t {
-	primary_expr_t *primary_expr;
-	postfix_t *postfix;
-	double value;
-	BOOL compile_evaluted;
-}postfix_expr_t;
-
-#define POSTFIX_EXPR	0
-#define UNARY_EXPR		1
-#define CAST_EXPR		2
-#define TYPE_NAME		3
-
-typedef struct _type_name_t {
-	type_t *type;
-	decl_spec_t *spec_qual_list;
-	struct _declarator_t *abs_decl;
-}type_name_t;
-
-typedef struct _unary_expr_t {
-	int expr_kind;
-	expr_t *expr;
-	type_name_t *cast_type;
-	int op;
-	BOOL compile_evaluated;
-	double value;			
-}unary_expr_t;
-
-typedef struct _cast_expr_t {
-	type_name_t *type_name;
-	unary_expr_t *unary_expr;
-	BOOL compile_evaluated;
-	double value;
-}cast_expr_t;
-
-typedef struct _binary_expr_t {
-	struct _binary_expr_t *op1;
-	struct _binary_expr_t *op2;
-	int op;
-	BOOL compile_evaluated;
-	double value;			
-}binary_expr_t;
-
-typedef struct _cond_expr_t {
-	binary_expr_t *logic_or_expr;
-	expr_t *expr;
-	struct _cond_expr_t *cond_expr;
-	BOOL compile_evaluated;
-	double value;			//if constant expr is all number, it's calculated when parse
-}cond_expr_t;
-
-typedef struct _const_expr_t {
-	cond_expr_t *cond_expr;
-	BOOL compile_evaluated;
-	double value;			//if constant expr is all number, it's calculated when parse
-}const_expr_t;
-
-typedef struct _param_type_list_t {
-	struct _declaration_t *param_list;
-	BOOL with_ellipse;
-}param_type_list_t;
-
-typedef struct _ident_list_t {
-	ast_node_t *ident;
-	struct _ident_list_t *next;
-}ident_list_t;
-
 #define PAREN		1
 #define BRACKET		2
-typedef struct _decl_postfix_t {
-	int paren_or_barcket;
-	const_expr_t *const_expr;
-	param_type_list_t *param_list;
-	ident_list_t *ident_list;
-	struct _decl_postfix_t *next;
-}decl_postfix_t;
-
-typedef struct _direct_declarator_t {
-	BOOL is_abs_decl;
-	ast_node_t *ident;
-	struct _declarator_t *decl;
-	decl_postfix_t *post;
-}direct_declarator_t;
-
-
-#define DECLARATOR			1 << 1
-#define INIT_DECLARATOR		1 << 2
-#define STRUCT_DECLARATOR	1 << 3
-#define ABS_DECLARATOR		1 << 4
 
 typedef struct _declarator_t {
 	int kind;
@@ -336,16 +240,16 @@ typedef struct _coordinate_t {
 	int colum;
 }coordinate_t;
 
-ast_node_t *parse_expr();
-ast_node_t *parse_cast_expr();
-ast_node_t *parse_decl_spec(int with_store_cls);
-ast_node_t *parse_abs_declarator();
-ast_node_t *parse_decl_postfix();
-ast_node_t *parse_direct_declarator();
-ast_node_t *parse_argu_expr_list();
-ast_node_t *parse_pointer();
-ast_node_t *parse_declarator(type_t *base_type);
-ast_node_t *parse_initializer_list();
-ast_node_t *parse_statement();
-ast_node_t *parse_compound_statement();
+expr_t *parse_expr();
+expr_t *parse_cast_expr();
+expr_t *parse_decl_spec(int with_store_cls);
+expr_t *parse_abs_declarator();
+expr_t *parse_decl_postfix();
+expr_t *parse_direct_declarator();
+expr_t *parse_argu_expr_list();
+expr_t *parse_pointer();
+expr_t *parse_declarator(type_t *base_type);
+expr_t *parse_initializer_list();
+expr_t *parse_statement();
+expr_t *parse_compound_statement();
 #endif
