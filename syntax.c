@@ -428,9 +428,25 @@ BOOL is_arith_type(type_t *type)
 	return FALSE;
 }
 
+BOOL is_null_pointer(expr_t *expr)
+{
+	if (expr->kind == AST_CONST && expr->value == 0) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL is_pointer_type(type_t *type)
 {
 	if (type->kind == TYPE_POINTER) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_scalar_type(type_t *type)
+{
+	if (is_arith_type(type) || is_scalar_type(type)) {
 		return TRUE;
 	}
 	return FALSE;
@@ -637,7 +653,7 @@ expr_t *parse_addit_expr()
 				ERROR("invalid operand");
 			}
 			if (!is_compatible_ptr(child_1, child_2)) {
-				ERROR("invalid operand");
+				WARN("invalid operand");
 			}
 			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
 			addit_expr->type = g_ty_int;
@@ -673,7 +689,7 @@ expr_t *parse_shift_epxr()
 			ERROR("invalid operands");
 		}
 		shift_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		shift_expr->type = child1->type;
+		shift_expr->type = type_conv(child1->type);
 	}
 	return shift_expr;
 }
@@ -685,16 +701,127 @@ expr_t *parse_realtional_expr()
 	rela_expr = parse_shift_epxr();
 	while (G_TK_KIND == TK_LESS || G_TK_KIND == TK_LESS_EQUAL
 		|| G_TK_KIND == TK_GREAT || G_TK_KIND == TK_GREAT_EQUAL) {
-		child2 == parse_shift_epxr();
-		if (!is_arith_type(child1) || !is_arith_type(child2)
-			&& !is_compatible_ptr(child1, child2)) {
+		child1 = rela_expr;
+		child2 = parse_shift_epxr();
+		if (!(is_arith_type(child1) && is_arith_type(child2))
+			&& !(is_pointer_type(child1) && is_pointer_type(child2))) {
 			ERROR("invalid operands");
 		}
-		
+		if (is_pointer_type(child1) && is_pointer_type(child2)
+			&& !is_compatible_ptr(child1, child2)) {
+			WARN("incompatible pointer");
+		}
+
 		rela_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		rela_expr->type = child1->type;
+		rela_expr->type = g_ty_int;
 	}
 	return rela_expr;
+}
+
+expr_t *parse_equality_expr()
+{
+	expr_t *equality_expr, *child1, *child2;
+
+	equality_expr = parse_realtional_expr();
+	while (G_TK_KIND == TK_EQUAL || G_TK_KIND == TK_NEQUAL) {
+		child1 = equality_expr;
+		child2 = parse_realtional_expr();
+		if (is_arith_type(child1) && is_arith_type(child2)
+			|| is_pointer_type(child1) && is_pointer_type(child2)
+			|| is_pointer_type(child1) && is_null_pointer(child2)
+			|| is_pointer_type(child2) && is_pointer_type(child2)) {
+			equality_expr = create_binary_expr(G_TK_KIND, child1, child2);
+			equality_expr->type = g_ty_int;
+		} else {
+			ERROR("invalid operand");
+		}
+	}
+	return equality_expr;
+}
+
+expr_t *parse_bit_and_expr()
+{
+	expr_t *bit_and_expr, *child1, *child2;
+
+	bit_and_expr = parse_equality_expr();
+	while (G_TK_KIND == TK_BITAND) {
+		child1 = bit_and_expr;
+		child2 = parse_equality_expr();
+		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+			ERROR("invalid operand");
+		}
+		bit_and_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		bit_and_expr->type = type_conv(child1->type);
+	}
+	return bit_and_expr;
+}
+
+expr_t *parse_exclusive_or_expr()
+{
+	expr_t *excl_expr, *child1, *child2;
+	
+	excl_expr = parse_bit_and_expr();
+	while (G_TK_KIND == TK_BITXOR) {
+		child1 = excl_expr;
+		child2 = parse_bit_and_expr();
+		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+			ERROR("invalid operand");
+		}
+		excl_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		excl_expr->type = type_conv(child1->type);
+	}
+	return excl_expr;
+}
+
+expr_t *parse_inclusive_or_expr()
+{
+	expr_t *inclu_or_expr, *child1, *child2;
+
+	inclu_or_expr = parse_bit_and_expr();
+	while (G_TK_KIND == TK_BITOR) {
+		child1 = inclu_or_expr;
+		child2 = parse_bit_and_expr();
+		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+			ERROR("invalid operand");
+		}
+		inclu_or_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		inclu_or_expr->type = type_conv(child1->type);
+	}
+	return inclu_or_expr;
+}
+
+expr_t *parse_logic_and_expr()
+{
+	expr_t *logic_and, *child1, *child2;
+	
+	logic_and = parse_inclusive_or_expr();
+	while (G_TK_KIND == TK_AND) {
+		child1 = logic_and;
+		child2 = parse_inclusive_or_expr();
+		if (!is_scalar_type(child1) || !is_scalar_type(child2)) {
+			ERROR("invalid operand");
+		}
+		logic_and = create_binary_expr(G_TK_KIND, child1, child2);
+		logic_and->type = g_ty_int;
+	}
+	return logic_and;
+}
+
+expr_t *parse_logic_or_expr()
+{
+	expr_t *logic_or, *child1, *child2;
+
+	logic_or = parse_inclusive_or_expr();
+	while (G_TK_KIND == TK_OR) {
+		child1 = logic_or;
+		child2 = parse_inclusive_or_expr();
+		if (!is_scalar_type(child1) || !is_scalar_type(child2)) {
+			ERROR("invalid operand");
+		}
+		logic_or = create_binary_expr(G_TK_KIND, child1, child2);
+		logic_or->type = g_ty_int;
+	}
+	return logic_or;
 }
 
 ast_node_t *parse_cond_expr()
