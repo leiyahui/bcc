@@ -460,6 +460,46 @@ BOOL is_struct_type(type_t *type)
 	return FALSE;
 }
 
+BOOL is_union_type(type_t *type)
+{
+	if (type->kind == TYPE_UNION) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_record_type(type_t *type)
+{
+	if (is_struct_type(type) || is_union_type(type)) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_function_type(type_t *type)
+{
+	if (type->kind == TYPE_FUNCTION) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_void_type(type_t *type)
+{
+	if (type->kind == TYPE_VOID) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL is_void_ptr(type_t *type)
+{
+	if (is_pointer_type(type) && is_void_type(type->base_type)) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL is_compatible_struct(tag_type_t *type1, tag_type_t *type2)
 {
 	return type1 == type2;
@@ -522,51 +562,6 @@ BOOL is_compatible_ptr(type_t *type1, type_t *type2)
 		return FALSE;
 	}
 	return is_compatible_type(type1, type2);
-}
-
-BOOL is_valid_both_pointer_bin_op(int ast_kind)
-{
-	if (ast_kind == AST_SUB || ast_kind == AST_LESS || ast_kind == AST_GREAT
-		|| ast_kind == AST_EQUAL || ast_kind == AST_NEQUAL
-		|| ast_kind == AST_GREAT_EQUAL || ast_kind == AST_LESS_EQUAL) {
-		return TRUE;
-	}
-	return FALSE;
-}
-
-BOOL is_valid_l_pointer_bin_op(int ast_kind)
-{
-	if (ast_kind == AST_ADD || ast_kind == AST_SUB || ast_kind == AST_LEFT || ast_kind == AST_RIGHT
-		|| ast_kind == AST_BIT_AND || AST_BIT_AND == AST_BIT_OR) {
-		return TRUE;
-	}
-	return FALSE;
-}
-
-void binary_operand_check(int ast_kind, expr_t *child_1, expr_t *child_2)
-{
-	type_t *type1, *type2;
-	type1 = child_1->type; type2 = child_2->type;
-	if (is_pointer_type(type1) && is_pointer_type(type2)) {
-		if (!is_valid_both_pointer_bin_op(ast_kind)) {
-			ERROR("invalid pointer arith");
-		}
-		return;
-	}
-	if (is_pointer_type(type1)) {
-		if (!is_valid_l_pointer_bin_op(ast_kind) || !is_arith_type(type2)) {
-			ERROR("invalid pointer arith");
-		}
-		return;
-	}
-	if (is_pointer_type(type2)) {
-		ERROR("invalid pointer arith");
-		return;
-	}
-	if (!is_arith_type(type1) || !is_arith_type(type2)) {
-		ERROR("invalid arith type");
-	}
-	
 }
 
 type_t *usual_arith_conv(type_t *type1, type_t *type2)
@@ -917,45 +912,16 @@ expr_t *parse_comma_expr()
 	return comma_expr;
 }
 
-ast_node_t *parse_argu_expr_list()
+expr_t *parse_const_expr()
 {
-	assign_expr_t *list, *iter_list;
+	expr_t *const_expr;
+	const_expr = parse_cond_expr();
 
-	list = iter_list = parse_assign_expr();
-
-	while (G_TK_KIND == TK_COMMA) {
-		iter_list->next = parse_assign_expr();
-		iter_list = iter_list->next;
+	if (!is_integer_type(const_expr)) {
+		ERROR("expect integer type");
 	}
-
-	return list;
-}
-
-ast_node_t *parse_expr()
-{
-	expr_t *expr;
-	
-	expr = (expr_t *)bcc_malloc(sizeof(expr_t));
-	expr->assign_expr = parse_assign_expr();
-	expr->next = NULL;
-
-	if (G_TK_KIND == TK_COMMA) {
-		NEXT_TOKEN;
-		expr->next = parse_expr();
-	}
-	return expr;
-}
-
-ast_node_t *parse_const_expr()
-{
-	const_expr_t *const_expr;
-
-	const_expr = (const_expr_t *)bcc_malloc(sizeof(const_expr_t));
-	const_expr->cond_expr = parse_cond_expr();
-
 	return const_expr;
 }
-
 
 /*parse statement*/
 
