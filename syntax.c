@@ -867,15 +867,12 @@ because conditional_expression contains unary_expression,
 we need tread unary_expresion as conditional
 */
 
-ast_node_t *parse_assign_expr()
+expr_t *parse_assign_expr()
 {
-	assign_expr_t *assign_expr;
+	expr_t *assign_expr, *child1, *child2;
 
-	assign_expr = (assign_expr_t *)bcc_malloc(sizeof(assign_expr_t));
-	assign_expr->cond_expr = parse_cond_expr();
-	assign_expr->assign_expr = assign_expr->next = NULL;
-
-	if (G_TK_KIND == TK_ASSIGN
+	assign_expr = parse_cond_expr();
+	while (G_TK_KIND == TK_ASSIGN
 		|| G_TK_KIND == TK_ADD_ASSING
 		|| G_TK_KIND == TK_SUB_ASSIGN
 		|| G_TK_KIND == TK_MULTI_ASSIGN
@@ -886,11 +883,16 @@ ast_node_t *parse_assign_expr()
 		|| G_TK_KIND == TK_BITAND_ASSIGN
 		|| G_TK_KIND == TK_LSHIFT_ASSIGN
 		|| G_TK_KIND == TK_RSHIFT_ASSIGN) {
-		assign_expr->assign_op = create_token_node();
+		if (!is_lvaue(assign_expr)) {
+			ERROR("expect lvalue");
+		}
+		child1 = assign_expr;
 		NEXT_TOKEN;
-		assign_expr->assign_expr = parse_assign_expr();
+		child2 = parse_assign_expr();
+		assign_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		assign_expr->type = child1->type;
 	}
-
+	return assign_expr;
 }
 
 ast_node_t *parse_argu_expr_list()
