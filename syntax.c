@@ -837,7 +837,7 @@ cond_expr_t *parse_cond_expr()
 		if (!is_scalar_type(logic_or_expr)) {
 			ERROR("The first expression shall be scalar type");
 		}
-		cond_expr->expr.child_1 = parse_expr();
+		cond_expr->expr.child_1 = parse_comma_expr();
 		if (G_TK_KIND != TK_COLON) {
 			ERROR("expect colon");
 		}
@@ -901,6 +901,20 @@ expr_t *parse_assign_expr()
 		}
 	}
 	return assign_expr;
+}
+
+expr_t *parse_comma_expr()
+{
+	expr_t *comma_expr, *child1, *child2;
+
+	comma_expr = parse_assign_expr();
+	while (G_TK_KIND == TK_COMMA) {
+		child1 = comma_expr;
+		child2 = parse_assign_expr();
+		comma_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		comma_expr->type = child2->type;
+	}
+	return comma_expr;
 }
 
 ast_node_t *parse_argu_expr_list()
