@@ -889,8 +889,16 @@ expr_t *parse_assign_expr()
 		child1 = assign_expr;
 		NEXT_TOKEN;
 		child2 = parse_assign_expr();
-		assign_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		assign_expr->type = child1->type;
+		if (is_arith_type(child1) && is_arith_type(child2)
+			|| is_pointer_type(child1) && is_pointer_type(child2)
+			|| is_pointer_type(child1) && is_null_pointer(child2)
+			|| is_null_pointer(child1) && is_pointer_type(child2)
+			|| is_compatible_struct(child1, child2)) {
+			assign_expr = create_binary_expr(G_TK_KIND, child1, child2);
+			assign_expr->type = child1->type;
+		} else {
+			ERROR("invalid assign operand");
+		}
 	}
 	return assign_expr;
 }
