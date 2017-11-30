@@ -136,3 +136,7 @@ type_t *type_conv(type_t *type)
 	}
 }
 
+expr_t *expr_type_conv(expr_t *expr)
+{
+	expr->type = type_conv(expr->type);
+}

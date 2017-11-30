@@ -141,17 +141,17 @@ expr_t *parse_subscript_expr(expr_t *expr)
 	expr_t *array_expr;
 	expr_t *subscript_expr;
 	
-	expr->type = type_conv(expr->type);
-	if (expr->type->kind != TYPE_POINTER) {
+	if (!is_pointer_type(expr->type)) {
 		ERROR("subscripted value is neither array nor pointer");
 	}
 	SKIP(TK_LBRACKET);
-	subscript_expr = parse_expr();
+	subscript_expr = expr_type_conv(parse_expr());
+	if (!is_integer_type(subscript_expr->type)) {
+		ERROR("subscrpt expect integer type");
+	}
 	SKIP(TK_RBRACKET);
 
-	array_expr = create_expr_node(AST_ARRAY);
-	array_expr->child_1 = expr;
-	array_expr->child_2 = subscript_expr;
+	array_expr = build_expr_node(AST_ARRAY, expr, subscript_expr);
 	array_expr->type = expr->type->base_type;
 	return array_expr;
 }
@@ -161,17 +161,14 @@ expr_t *parse_func_expr(expr_t *expr)
 	expr_t *param_expr;
 	expr_t *func_expr;
 
-	expr->type = type_conv(expr->type);
-	if (expr->type->kind != TYPE_POINTER || expr->type->base_type->kind != TYPE_FUNCTION) {
+	if (!is_pointer_type(expr->type) || !is_function_type(expr->type->base_type)) {
 		ERROR("expect function identifier");
 	}
 	SKIP(TK_LPAREN);
 	param_expr = parse_argu_expr_list();
 	SKIP(TK_RPAREN);
 
-	func_expr = create_expr_node(AST_FUNC);
-	func_expr->child_1 = expr;
-	func_expr->child_2 = parse_argu_expr_list();
+	func_expr = build_expr_node(AST_FUNC, expr, parse_argu_expr_list());
 	func_expr->type = ((function_type_t *)expr->type)->ret;
 	return func_expr;
 }
@@ -181,21 +178,20 @@ expr_t *parse_struct_field(expr_t *expr)
 	type_t *struct_ty, *field_ty;
 	expr_t *struct_field_expr;
 	token_t *field_tk;
+	int ast_kind;
 	if (G_TK_KIND == TK_POINTER) {
-		if (expr->type->kind != TYPE_POINTER
-			|| (expr->type->base_type->kind != TYPE_STRUCT
-			&& expr->type->base_type->kind != TYPE_UNION)) {
+		if (!is_pointer_type(expr->type)
+			|| !is_record_type(expr->type->base_type)) {
 			ERROR("expect pointer to struct or union type");
 		}
 		struct_ty = expr->type->base_type;
-		struct_field_expr = create_expr_node(AST_POINTER_TO);
+		ast_kind = AST_POINTER_TO;
 	} else if (G_TK_KIND == TK_DOT) {
-		if (expr->type->kind != TYPE_STRUCT
-			&& expr->type->kind != TYPE_UNION) {
+		if (!is_record_type(expr->type)) {
 			ERROR("expect to struct or union type");
 		}
 		struct_ty = expr->type;
-		struct_field_expr = create_expr_node(AST_CONTAIN);
+		ast_kind = AST_CONTAIN;
 	}
 	NEXT_TOKEN;
 	EXPECT(TK_IDENTIFIER);
@@ -205,8 +201,7 @@ expr_t *parse_struct_field(expr_t *expr)
 	if (field_ty == NULL) {
 		ERROR("struct have no expect member");
 	}
-	struct_field_expr->child_1 = expr;
-	struct_field_expr->child_2 = field_tk;
+	build_expr_node(ast_kind, expr, field_tk);
 	struct_field_expr->type = field_ty;
 	return struct_field_expr;
 }
@@ -229,8 +224,11 @@ expr_t *parse_self_inc_dec_expr(expr_t *expr, int kind)
 	if (!is_lvaue(expr)) {
 		ERROR("lvalue required as increment operand");
 	}
-	inc_expr = create_expr_node(kind);
-	inc_expr->child_1 = expr;
+	if (!is_integer_type(expr->type) && !is_pointer_type(expr->type)) {
+		ERROR("require integer type or pointer type");
+	}
+
+	build_expr_node(kind, expr, NULL);
 	inc_expr->type = expr->type;
 	
 	return inc_expr;
@@ -267,7 +265,7 @@ ast_node_t *parse_postfix_expr()
 {
 	expr_t *postfix_expr;
 	
-	postfix_expr = parse_postfix(parse_primary_expr());
+	postfix_expr = parse_postfix(expr_type_conv(parse_primary_expr()));
 
 	return postfix_expr;
 }
@@ -291,8 +289,12 @@ type_t *parse_sizeof_expr()
 		SKIP(TK_LPAREN)
 		type = parse_type_name();
 		SKIP(TK_RPAREN);
+	} else {
+		type = parse_unary_expr()->type;
 	}
-	type = parse_unary_expr()->type;
+	if (is_function_type(type) || is_void_type(type)) {
+		ERROR("invalid sizeof operand");
+	}
 	return type;
 }
 
@@ -306,73 +308,76 @@ expr_t *parse_unary_expr()
 	switch (G_TK_KIND) {
 	case TK_INC:
 		SKIP(TK_INC);
-		unary_expr = parse_self_inc_dec_expr(parse_unary_expr(), AST_PRFIX_INC);
+		unary_expr = parse_self_inc_dec_expr(expr_type_conv(parse_unary_expr()), AST_PRFIX_INC);
 		break;
 	case TK_DEC:
 		SKIP(TK_DEC);
-		unary_expr = parse_self_inc_dec_expr(parse_unary_expr(), AST_PRFIX_INC);
+		unary_expr = parse_self_inc_dec_expr(expr_type_conv(parse_unary_expr()), AST_PRFIX_INC);
 		break;
 	case TK_BITAND:
 		SKIP(TK_BITAND);
 		cast_expr = parse_cast_expr();
-		if (!is_lvaue(cast_expr)) {
+		if (!is_function_type(cast_expr->type) && !is_lvaue(cast_expr)) {
 			ERROR("lvalue required as unary '&' operand");
-		}
-		unary_expr = create_expr_node(AST_ADDR);
-		unary_expr->child_1 = cast_expr;
+		} 
+		unary_expr = build_expr_node(AST_ADDR, cast_expr, NULL);
 		unary_expr->type = derive_pointer_type(cast_expr->type, 0);
 		break;
 	case TK_MULTIPLY:
 		SKIP(TK_MULTIPLY);
-		cast_expr = parse_cast_expr();
-		if (cast_expr->type->kind != TYPE_POINTER) {
+		cast_expr = expr_type_conv(parse_cast_expr());
+		if (!is_pointer_type(cast_expr->type)) {
 			ERROR("expect pointer type");
 		}
-		if (cast_expr->type->base_type->kind == TYPE_FUNCTION) {
+		if (is_function_type(cast_expr->type->base_type)) {
 			return cast_expr;
 		}
-		unary_expr = create_expr_node(AST_DREF);
-		unary_expr->child_1 = cast_expr;
+		unary_expr = build_expr_node(AST_DREF, cast_expr, NULL);
 		unary_expr->type = cast_expr->type->base_type;
 		break;
 	case TK_ADD:
 		SKIP(TK_ADD);
-		cast_expr = parse_cast_expr();
+		cast_expr = expr_type_conv(parse_cast_expr());
+		if (!is_arith_type(cast_expr->type)) {
+			ERROR("'+'expect arith type");
+		}
 		if (!is_lvaue(cast_expr)) {
 			ERROR("lvalue required as unary '+' operand");
 		}
-		unary_expr = create_expr_node(AST_UNARY_PLUS);
-		unary_expr->child_1 = cast_expr;
+		unary_expr = build_expr_node(AST_UNARY_PLUS, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
 		break;
 	case TK_SUB:
 		SKIP(TK_SUB);
-		cast_expr = parse_cast_expr();
+		cast_expr = expr_type_conv(parse_cast_expr());
+		if (!is_arith_type(cast_expr->type)) {
+			ERROR("'+'expect arith type");
+		}
 		if (!is_lvaue(cast_expr)) {
 			ERROR("lvalue required as unary '-' operand");
 		}
-		unary_expr = create_expr_node(AST_UNARY_MINUS);
-		unary_expr->child_1 = cast_expr;
+		unary_expr = build_expr_node(AST_UNARY_MINUS, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
 		break;
 	case TK_BITREVERT:
 		SKIP(TK_BITREVERT);
-		cast_expr = parse_cast_expr();
+		cast_expr = expr_type_conv(parse_cast_expr());
+		if (!is_integer_type(cast_expr->type)) {
+			ERROR("'+'expect arith type");
+		}
 		if (!is_lvaue(cast_expr)) {
 			ERROR("lvalue required as unary '~' operand");
 		}
-		unary_expr = create_expr_node(AST_BITREVERT);
-		unary_expr->child_1 = cast_expr;
+		unary_expr = build_expr_node(AST_BITREVERT, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
 		break;
 	case TK_NOT:
 		SKIP(TK_NOT);
 		cast_expr = parse_cast_expr();
-		if (!is_lvaue(cast_expr)) {
+		if (!is_scalar_type(cast_expr->type)) {
 			ERROR("lvalue required as unary '!' operand");
 		}
-		unary_expr = create_expr_node(AST_NOT);
-		unary_expr->child_1 = cast_expr;
+		unary_expr = build_expr_node(AST_NOT, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
 		break;
 	case TK_SIZEOF:
@@ -397,7 +402,10 @@ expr_t *parse_cast_expr()
 		cast_expr->child_1 = parse_type_name();
 		SKIP(TK_RPAREN);
 		cast_expr->type = cast_expr->child_1;
-		cast_expr->child_2 = parse_cast_expr();
+		cast_expr->child_2 = expr_type_conv(parse_cast_expr());
+		if (!is_scalar_type(cast_expr->child_1->type) || is_scalar_type(cast_expr->child_2->type)) {
+			ERROR("invalid cast oeprand");
+		}
 		return cast_expr;
 	}
 
@@ -502,7 +510,10 @@ BOOL is_void_ptr(type_t *type)
 
 BOOL is_compatible_struct(tag_type_t *type1, tag_type_t *type2)
 {
-	return type1 == type2;
+	if (is_record_type(type1) && is_record_type(type2)) {
+		return type1 == type2;
+	}
+	return FALSE;
 }
 
 BOOL is_compatible_function(function_type_t *type1, function_type_t *type2)
@@ -595,7 +606,7 @@ type_t *usual_arith_conv(type_t *type1, type_t *type2)
 	return new_type;
 }
 
-expr_t *create_binary_expr(int ast_kind, expr_t *child_1, expr_t *child_2)
+expr_t *build_expr_node(int ast_kind, expr_t *child_1, expr_t *child_2)
 {
 	expr_t *expr;
 
@@ -609,23 +620,23 @@ expr_t *parse_multi_expr()
 {
 	expr_t *multi_expr, *child1, *child2;
 
-	multi_expr = parse_cast_expr();
+	multi_expr = expr_type_conv(parse_cast_expr());
 	while (G_TK_KIND == TK_MULTIPLY || G_TK_KIND == TK_DIVIDE || G_TK_KIND == TK_MOD) {
 		child1 = multi_expr;
-		child2 = parse_cast_expr();
+		child2 = expr_type_conv(parse_cast_expr());
 
 		if (G_TK_KIND == TK_MOD) {
-			if (!is_integer_type(child1) || !is_integer_type(child2)) {
+			if (!is_integer_type(child1->type) || !is_integer_type(child2->type)) {
 				ERROR("invalid operand");
 			}
 		} else {
-			if (!is_arith_type(child1) || !is_arith_type(child2)) {
+			if (!is_arith_type(child1->type) || !is_arith_type(child2->type)) {
 				ERROR("invalid operand");
 			}
 		}
 
-		multi_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		multi_expr->type = usual_arith_conv(child1, child2);
+		multi_expr = build_expr_node(G_TK_KIND, child1, child2);
+		multi_expr->type = usual_arith_conv(child1->type, child2->type);
 	}
 	return multi_expr;
 }
@@ -633,37 +644,41 @@ expr_t *parse_multi_expr()
 expr_t *parse_addit_expr()
 {
 	expr_t *addit_expr, *child_1, *child_2;
+	type_t *type1, *type2;
 
-	addit_expr = parse_multi_expr();
+	addit_expr = expr_type_conv(parse_multi_expr());
 	while (G_TK_KIND == TK_ADD || G_TK_KIND == TK_SUB) {
 		child_1 = addit_expr;
-		child_2 = parse_multi_expr();
-		if (is_arith_type(child_1) && is_arith_type(child_2)) {
-			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
-			addit_expr->type = usual_arith_conv(child_1, child_2);
+		child_2 = expr_type_conv(parse_multi_expr());
+
+		type1 = child_1->type;
+		type2 = child_2->type;
+		if (is_arith_type(type1) && is_arith_type(type2)) {
+			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
+			addit_expr->type = usual_arith_conv(type1, type2);
 			continue;
 		}
-		if (is_pointer_type(child_1) && is_pointer_type(child_2)) {
+		if (is_pointer_type(type1) && is_pointer_type(type2)) {
 			if (G_TK_KIND != TK_SUB) {
 				ERROR("invalid operand");
 			}
-			if (!is_compatible_ptr(child_1, child_2)) {
+			if (!is_compatible_ptr(type1, type2)) {
 				WARN("invalid operand");
 			}
-			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = g_ty_int;
 			continue;
 		}
-		if (is_pointer_type(child_1) && is_integer_type(child_2)) {
-			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+		if (is_pointer_type(type1) && is_integer_type(type2)) {
+			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = child_1->type;
 			continue;
 		}
-		if (is_integer_type(child_1) && is_pointer_type(child_2)) {
+		if (is_integer_type(type1) && is_pointer_type(type2)) {
 			if (G_TK_KIND == TK_SUB) {
 				ERROR("invalid operand");
 			}
-			addit_expr = create_binary_expr(G_TK_KIND, child_1, child_2);
+			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = child_2->type;
 			continue;
 		}
@@ -676,15 +691,15 @@ expr_t *parse_shift_epxr()
 {
 	expr_t *shift_expr, *child1, *child2;
 
-	shift_expr = parse_addit_expr();
+	shift_expr = expr_type_conv(parse_addit_expr());
 	while (G_TK_KIND == TK_LSHIFT || G_TK_KIND == TK_RSHIFT) {
 		child1 = shift_expr;
-		child2 = parse_addit_expr();
-		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+		child2 = expr_type_conv(parse_addit_expr());
+		if (!is_integer_type(child1->type) || !is_integer_type(child2->type)) {
 			ERROR("invalid operands");
 		}
-		shift_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		shift_expr->type = type_conv(child1->type);
+		shift_expr = build_expr_node(G_TK_KIND, child1, child2);
+		shift_expr->type = child1->type;
 	}
 	return shift_expr;
 }
@@ -692,22 +707,25 @@ expr_t *parse_shift_epxr()
 expr_t *parse_realtional_expr()
 {
 	expr_t *rela_expr, *child1, *child2;
+	type_t *type1, *type2;
 
-	rela_expr = parse_shift_epxr();
+	rela_expr = expr_type_conv(parse_shift_epxr());
 	while (G_TK_KIND == TK_LESS || G_TK_KIND == TK_LESS_EQUAL
 		|| G_TK_KIND == TK_GREAT || G_TK_KIND == TK_GREAT_EQUAL) {
 		child1 = rela_expr;
-		child2 = parse_shift_epxr();
-		if (!(is_arith_type(child1) && is_arith_type(child2))
-			&& !(is_pointer_type(child1) && is_pointer_type(child2))) {
+		child2 = expr_type_conv(parse_shift_epxr());
+		type1 = child1->type;
+		type2 = child2->type;
+		if (!(is_arith_type(type1) && is_arith_type(type2))
+			&& !(is_pointer_type(type1) && is_pointer_type(type2))) {
 			ERROR("invalid operands");
 		}
-		if (is_pointer_type(child1) && is_pointer_type(child2)
-			&& !is_compatible_ptr(child1, child2)) {
+		if (is_pointer_type(type1) && is_pointer_type(type2)
+			&& !is_compatible_ptr(type1, type2)) {
 			WARN("incompatible pointer");
 		}
 
-		rela_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		rela_expr = build_expr_node(G_TK_KIND, child1, child2);
 		rela_expr->type = g_ty_int;
 	}
 	return rela_expr;
@@ -716,16 +734,19 @@ expr_t *parse_realtional_expr()
 expr_t *parse_equality_expr()
 {
 	expr_t *equality_expr, *child1, *child2;
+	type_t *type1, *type2;
 
-	equality_expr = parse_realtional_expr();
+	equality_expr = expr_type_conv(parse_realtional_expr());
 	while (G_TK_KIND == TK_EQUAL || G_TK_KIND == TK_NEQUAL) {
 		child1 = equality_expr;
-		child2 = parse_realtional_expr();
-		if (is_arith_type(child1) && is_arith_type(child2)
-			|| is_pointer_type(child1) && is_pointer_type(child2)
-			|| is_pointer_type(child1) && is_null_pointer(child2)
-			|| is_pointer_type(child2) && is_pointer_type(child2)) {
-			equality_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		child2 = expr_type_conv(parse_realtional_expr());
+		type1 = child1->type;
+		type2 = child2->type;
+		if (is_arith_type(type1) && is_arith_type(type2)
+			|| is_pointer_type(type1) && is_pointer_type(type2)
+			|| is_pointer_type(type1) && is_null_pointer(child2)
+			|| is_null_pointer(child1) && is_pointer_type(type2)) {
+			equality_expr = build_expr_node(G_TK_KIND, child1, child2);
 			equality_expr->type = g_ty_int;
 		} else {
 			ERROR("invalid operand");
@@ -738,15 +759,15 @@ expr_t *parse_bit_and_expr()
 {
 	expr_t *bit_and_expr, *child1, *child2;
 
-	bit_and_expr = parse_equality_expr();
+	bit_and_expr = expr_type_conv(parse_equality_expr());
 	while (G_TK_KIND == TK_BITAND) {
 		child1 = bit_and_expr;
-		child2 = parse_equality_expr();
-		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+		child2 = expr_type_conv(parse_equality_expr());
+		if (!is_integer_type(child1->type) || !is_integer_type(child2->type)) {
 			ERROR("invalid operand");
 		}
-		bit_and_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		bit_and_expr->type = type_conv(child1->type);
+		bit_and_expr = build_expr_node(G_TK_KIND, child1, child2);
+		bit_and_expr->type = child1->type;
 	}
 	return bit_and_expr;
 }
@@ -755,15 +776,15 @@ expr_t *parse_exclusive_or_expr()
 {
 	expr_t *excl_expr, *child1, *child2;
 	
-	excl_expr = parse_bit_and_expr();
+	excl_expr = expr_type_conv(parse_bit_and_expr());
 	while (G_TK_KIND == TK_BITXOR) {
 		child1 = excl_expr;
-		child2 = parse_bit_and_expr();
-		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+		child2 = expr_type_conv(parse_bit_and_expr());
+		if (!is_integer_type(child1->type) || !is_integer_type(child2->type)) {
 			ERROR("invalid operand");
 		}
-		excl_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		excl_expr->type = type_conv(child1->type);
+		excl_expr = build_expr_node(G_TK_KIND, child1, child2);
+		excl_expr->type = child1->type;
 	}
 	return excl_expr;
 }
@@ -772,15 +793,15 @@ expr_t *parse_inclusive_or_expr()
 {
 	expr_t *inclu_or_expr, *child1, *child2;
 
-	inclu_or_expr = parse_bit_and_expr();
+	inclu_or_expr = expr_type_conv(parse_bit_and_expr());
 	while (G_TK_KIND == TK_BITOR) {
 		child1 = inclu_or_expr;
-		child2 = parse_bit_and_expr();
-		if (!is_integer_type(child1) || !is_integer_type(child2)) {
+		child2 = expr_type_conv(parse_bit_and_expr());
+		if (!is_integer_type(child1->type) || !is_integer_type(child2->type)) {
 			ERROR("invalid operand");
 		}
-		inclu_or_expr = create_binary_expr(G_TK_KIND, child1, child2);
-		inclu_or_expr->type = type_conv(child1->type);
+		inclu_or_expr = build_expr_node(G_TK_KIND, child1, child2);
+		inclu_or_expr->type = child1->type;
 	}
 	return inclu_or_expr;
 }
@@ -789,14 +810,14 @@ expr_t *parse_logic_and_expr()
 {
 	expr_t *logic_and, *child1, *child2;
 	
-	logic_and = parse_inclusive_or_expr();
+	logic_and = expr_type_conv(parse_inclusive_or_expr());
 	while (G_TK_KIND == TK_AND) {
 		child1 = logic_and;
-		child2 = parse_inclusive_or_expr();
-		if (!is_scalar_type(child1) || !is_scalar_type(child2)) {
+		child2 = expr_type_conv(parse_inclusive_or_expr());
+		if (!is_scalar_type(child1->type) || !is_scalar_type(child2->type)) {
 			ERROR("invalid operand");
 		}
-		logic_and = create_binary_expr(G_TK_KIND, child1, child2);
+		logic_and = build_expr_node(G_TK_KIND, child1, child2);
 		logic_and->type = g_ty_int;
 	}
 	return logic_and;
@@ -806,14 +827,14 @@ expr_t *parse_logic_or_expr()
 {
 	expr_t *logic_or, *child1, *child2;
 
-	logic_or = parse_inclusive_or_expr();
+	logic_or = expr_type_conv(parse_inclusive_or_expr());
 	while (G_TK_KIND == TK_OR) {
 		child1 = logic_or;
-		child2 = parse_inclusive_or_expr();
-		if (!is_scalar_type(child1) || !is_scalar_type(child2)) {
+		child2 = expr_type_conv(parse_inclusive_or_expr());
+		if (!is_scalar_type(child1->type) || !is_scalar_type(child2->type)) {
 			ERROR("invalid operand");
 		}
-		logic_or = create_binary_expr(G_TK_KIND, child1, child2);
+		logic_or = build_expr_node(G_TK_KIND, child1, child2);
 		logic_or->type = g_ty_int;
 	}
 	return logic_or;
@@ -823,50 +844,51 @@ cond_expr_t *parse_cond_expr()
 {
 	cond_expr_t *cond_expr, *child_cond_expr;
 	expr_t *logic_or_expr, *expr;
+	type_t *type_1, *type_2;
 
-	logic_or_expr = parse_logic_or_expr();
+	logic_or_expr = expr_type_conv(parse_logic_or_expr());
 
 	if (G_TK_KIND == TK_QUESTION) {
 		cond_expr = bcc_malloc(sizeof(cond_expr_t));
 		cond_expr->logical_or = logic_or_expr;
-		if (!is_scalar_type(logic_or_expr)) {
+		if (!is_scalar_type(logic_or_expr->type)) {
 			ERROR("The first expression shall be scalar type");
 		}
-		cond_expr->expr.child_1 = parse_comma_expr();
+		cond_expr->expr.child_1 = expr_type_conv(parse_comma_expr());
 		if (G_TK_KIND != TK_COLON) {
 			ERROR("expect colon");
 		}
 		SKIP(TK_COLON);
-		cond_expr->expr.child_2 = parse_cond_expr();
-		if (is_arith_type(cond_expr->expr.child_1) && is_arith_type(cond_expr->expr.child_2)
-			|| is_pointer_type(cond_expr->expr.child_1) && is_pointer_type(cond_expr->expr.child_2)
-			|| is_pointer_type(cond_expr->expr.child_1) && is_null_pointer(cond_expr->expr.child_2)
-			|| is_null_pointer(cond_expr->expr.child_1) && is_pointer_type(cond_expr->expr.child_2)
-			|| is_compatible_struct(cond_expr->expr.child_1, cond_expr->expr.child_2)) {
-			return cond_expr;
+		cond_expr->expr.child_2 = expr_type_conv(parse_cond_expr());
+		type_1 = cond_expr->expr.child_1->type;
+		type_2 = cond_expr->expr.child_2->type;
+		if (is_arith_type(type_1) && is_arith_type(type_2)) {
+			cond_expr->expr.type = usual_arith_conv(type_1, type_2);
+		} else if (is_compatible_struct(type_1, type_2)) {
+			cond_expr->expr.type = type_1;
+		} else if (is_void_type(type_1) && is_void_type(type_2)) {
+			cond_expr->expr.type = type_1;
+		} else if (is_pointer_type(type_1) && is_pointer_type(type_2)) {
+			cond_expr->expr.type = type_1;
+		} else if (is_pointer_type(type_1) && is_null_pointer(cond_expr->expr.child_2)) {
+			cond_expr->expr.type = type_1;
+		} else if (is_null_pointer(cond_expr->expr.child_1) && is_null_pointer(cond_expr->expr.child_2)) {
+			cond_expr->expr.type = type_2;
 		} else {
 			ERROR("invalid operand");
 		}
+		return cond_expr;
 	}
+
 	return logic_or_expr;
 }
-
-/*
-assignment_expression
-: conditional_expression
-| unary_expression assignment_operator assignment_expression
-;
-*/
-/*
-because conditional_expression contains unary_expression,
-we need tread unary_expresion as conditional
-*/
 
 expr_t *parse_assign_expr()
 {
 	expr_t *assign_expr, *child1, *child2;
+	type_t *type_1, *type_2;
 
-	assign_expr = parse_cond_expr();
+	assign_expr = expr_type_conv(parse_cond_expr());
 	while (G_TK_KIND == TK_ASSIGN
 		|| G_TK_KIND == TK_ADD_ASSING
 		|| G_TK_KIND == TK_SUB_ASSIGN
@@ -883,15 +905,25 @@ expr_t *parse_assign_expr()
 		}
 		child1 = assign_expr;
 		NEXT_TOKEN;
-		child2 = parse_assign_expr();
-		if (is_arith_type(child1) && is_arith_type(child2)
-			|| is_pointer_type(child1) && is_pointer_type(child2)
-			|| is_pointer_type(child1) && is_null_pointer(child2)
-			|| is_null_pointer(child1) && is_pointer_type(child2)
-			|| is_compatible_struct(child1, child2)) {
-			assign_expr = create_binary_expr(G_TK_KIND, child1, child2);
-			assign_expr->type = child1->type;
-		} else {
+		child2 = expr_type_conv(parse_assign_expr());
+
+		type_1 = child1->type;
+		type_2 = child2->type;
+		assign_expr = build_expr_node(G_TK_KIND, child1, child2);
+		if (is_arith_type(type_1) && is_arith_type(type_2)) {
+			assign_expr->type = usual_arith_conv(type_1, type_2);
+		} else if (is_compatible_struct(type_1, type_2)) {
+			assign_expr->type = type_1;
+		} else if (is_void_type(type_1) && is_void_type(type_2)) {
+			assign_expr->type = type_1;
+		}else if (is_pointer_type(type_1) && is_pointer_type(type_2)) {
+			assign_expr->type = type_1;
+		} else if (is_pointer_type(type_1) && is_null_pointer(child2)) {
+			assign_expr->type = type_1;
+		} else if (is_null_pointer(child1) && is_null_pointer(child2)) {
+			assign_expr->type = type_2;
+		}
+		else {
 			ERROR("invalid assign operand");
 		}
 	}
@@ -902,11 +934,11 @@ expr_t *parse_comma_expr()
 {
 	expr_t *comma_expr, *child1, *child2;
 
-	comma_expr = parse_assign_expr();
+	comma_expr = expr_type_conv(parse_assign_expr());
 	while (G_TK_KIND == TK_COMMA) {
 		child1 = comma_expr;
-		child2 = parse_assign_expr();
-		comma_expr = create_binary_expr(G_TK_KIND, child1, child2);
+		child2 = expr_type_conv(parse_assign_expr());
+		comma_expr = build_expr_node(G_TK_KIND, child1, child2);
 		comma_expr->type = child2->type;
 	}
 	return comma_expr;
@@ -917,7 +949,7 @@ expr_t *parse_const_expr()
 	expr_t *const_expr;
 	const_expr = parse_cond_expr();
 
-	if (!is_integer_type(const_expr)) {
+	if (!is_integer_type(const_expr->type)) {
 		ERROR("expect integer type");
 	}
 	return const_expr;
