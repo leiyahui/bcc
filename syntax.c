@@ -464,6 +464,14 @@ BOOL is_scalar_type(type_t *type)
 	return FALSE;
 }
 
+BOOL is_const_expr(expr_t *expr)
+{
+	if (expr->kind == AST_CONST) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL is_struct_type(type_t *type)
 {
 	if (type->kind == TYPE_STRUCT) {
@@ -1036,7 +1044,7 @@ expr_t *parse_const_expr()
 	expr_t *const_expr;
 	const_expr = parse_cond_expr();
 
-	if (!is_integer_type(const_expr->type)) {
+	if (!is_const_expr(const_expr) || !is_integer_type(const_expr->type)) {
 		ERROR("expect integer type");
 	}
 	return const_expr;
