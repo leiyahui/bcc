@@ -7,6 +7,7 @@ typedef struct _symbol_t {
 	char *name;
 	type_t *type;
 	BOOL is_typedef;
+	double init_value;
 	struct _symbol_t *next;
 }symbol_t;
 
@@ -36,7 +37,7 @@ extern user_df_ty_table_t *g_tag_tb;
 
 void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declaration);
 
-void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef);
+void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, int init_val);
 
 BOOL is_curr_scope_define_type(user_df_ty_table_t *ty_table, char *name);
 
@@ -49,6 +50,8 @@ BOOL in_symbol_table(symbol_table_t*sym_tb, char *name);
 user_df_ty_table_t *get_user_def(user_df_ty_table_t *ty_table, char *name);
 
 type_t *get_user_def_type(user_df_ty_table_t *ty_table, char *name);
+
+BOOL in_curr_scope_sym_tb(symbol_table_t *sym_table, char *name);
 
 symbol_t *get_symbol(symbol_table_t *sym_table, char *name);
 

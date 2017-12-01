@@ -1144,7 +1144,39 @@ type_t *parse_struct_union()
 	return tag_type;
 }
 
-ast_node_t *parse_enum()
+int parse_enumerator(val)
+{
+	char *name;
+	expr_t *const_expr;
+
+	if (G_TK_KIND != TK_IDENTIFIER) {
+		ERROLR("expect identifier");
+	}
+	name = G_TK_VALUE.ptr;
+	
+	SKIP(TK_IDENTIFIER);
+	if (G_TK_KIND == TK_ASSIGN) {
+		const_expr = parse_const_expr;
+		val = const_expr->value;
+	}
+	if (in_curr_scope_sym_tb(g_sym_tb, name)) {
+		ERROR("redeclare varible");
+	}
+	insert_to_sym_table(name, g_ty_int, FALSE, val);
+	return val + 1;
+}
+
+void parse_enum_list()
+{
+	int val = 0;
+
+	val = parse_enumerator(val);
+	while (G_TK_KIND == TK_COMMA) {
+		val = parse_enumerator(val);
+	}
+}
+
+type_t *parse_enum()
 {
 	int  has_declaration;
 	char *tag_name;
@@ -1552,6 +1584,9 @@ type_t *parse_direct_declarator(type_t *base_type, char **name)
 
 	if (G_TK_KIND == TK_IDENTIFIER) {
 		*name = G_TK_VALUE.ptr;
+		if (in_curr_scope_sym_tb(g_sym_tb, *name)) {
+			ERROR("redeclare symbol");
+		}
 		type = base_type;
 		SKIP(TK_IDENTIFIER);
 		return parse_decl_postfix(type);
@@ -1720,7 +1755,7 @@ vector_t *parse_init_declarator(type_t *spec_type)
 	type = parse_declarator(spec_type, &name);
 
 	is_typedef = (spec_type->store_cls == TK_TYPEDEF) ? TRUE : FALSE;
-	insert_to_sym_table(name, type, is_typedef);
+	insert_to_sym_table(name, type, is_typedef, 0);
 
 	if (G_TK_KIND == TK_ASSIGN) {
 		NEXT_TOKEN;

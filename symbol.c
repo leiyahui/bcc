@@ -15,7 +15,7 @@ void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t
 	ty_table->list_tail = new_type;
 }
 
-void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef)
+void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, int init_val)
 {
 	symbol_t *new_sym;
 
@@ -111,6 +111,19 @@ type_t *get_user_def_type(user_df_ty_table_t *ty_table, char *name)
 		return get_user_def_type(ty_table->parent, name);
 	}
 	return NULL;
+}
+
+BOOL in_curr_scope_sym_tb(symbol_table_t *sym_table, char *name)
+{
+	symbol_t *iter_sym;
+
+	iter_sym = sym_table->list_head;
+	while (iter_sym != NULL) {
+		if (iter_sym->name == name) {
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 symbol_t *get_symbol(symbol_table_t *sym_table, char *name)
