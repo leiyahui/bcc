@@ -1144,55 +1144,47 @@ type_t *parse_struct_union()
 	return tag_type;
 }
 
-ast_node_t *parse_enumerator()
-{
-	enumerator_t *enumerator;
-
-	enumerator = (enumerator_t *)bcc_malloc(sizeof(enumerator_t));
-	enumerator->ident = create_token_node();
-	NEXT_TOKEN;
-	if (G_TK_KIND == TK_ASSIGN) {
-		NEXT_TOKEN;
-		enumerator->const_expr = parse_const_expr();
-	}
-	return enumerator;
-}
-
-ast_node_t *parse_enumerator_list()
-{
-	enumerator_t *list, *list_iter;
-
-	list = list_iter = (enumerator_t *)bcc_malloc(sizeof(enumerator_t));
-	list_iter = parse_enumerator();
-
-	while (G_TK_KIND == TK_COMMA) {
-		list_iter->next = parse_enumerator();
-		list_iter = list_iter->next;
-	}
-	return list_iter;
-}
-
 ast_node_t *parse_enum()
 {
-	enum_spec_t *enum_spec;
-	enum_spec = (enum_spec_t*)bcc_malloc(sizeof(enumerator_t));
+	int  has_declaration;
+	char *tag_name;
+	type_t *tag_type;
+	user_define_type_t *before_type;
 
-	SKIP(TK_ENUM);
-	if (G_TK_KIND = TK_LBRACE) {
-		NEXT_TOKEN;
-		enum_spec->enum_decl = parse_enumerator_list();
-		NEXT_TOKEN;
-	} else if (G_TK_KIND == TK_IDENTIFIER) {
-		enum_spec->ident = create_token_node();
-		NEXT_TOKEN;
-		if (G_TK_KIND = TK_LBRACE) {
-			NEXT_TOKEN;
-			enum_spec->enum_decl = parse_enumerator_list();
-			NEXT_TOKEN;
-		}
-	} else {
-		ERROR("expect '{' or identifier");
+	NEXT_TOKEN;
+
+	tag_name = NULL;
+	if (G_TK_KIND == TK_IDENTIFIER) {
+		tag_name = G_TK_VALUE.ptr;
+		SKIP(TK_IDENTIFIER);
 	}
+
+	has_declaration = (peek()->tk_kind == TK_LBRACE) ? TRUE : FALSE;
+	if (tag_name && is_curr_scope_define_type(g_tag_tb, tag_name)) {
+		before_type = get_user_def(g_tag_tb, tag_name);
+		if (before_type->type->kind != TYPE_ENUM) {
+			ERROR("defined as wrong kind of tag");
+		}
+		if (before_type->has_declaration == TRUE && has_declaration) {
+			ERROR("redefinition tag");
+		}
+		if (has_declaration) {
+			SKIP(TK_LBRACE);
+			before_type->has_declaration = TRUE;
+			parse_struct_declaration_list(before_type->type);
+			return before_type->type;
+		}
+		return before_type->type;
+	}
+
+	if (tag_name) {
+		insert_to_user_define_type(g_tag_tb, tag_name, g_ty_int, has_declaration);
+	}
+	if (has_declaration) {
+		SKIP(TK_LBRACE);
+		parse_struct_declaration_list(tag_type);
+	}
+	return tag_type;
 }
 
 decl_spec_t *create_decl_spec()
