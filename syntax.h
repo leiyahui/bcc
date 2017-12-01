@@ -240,16 +240,4 @@ typedef struct _coordinate_t {
 	int colum;
 }coordinate_t;
 
-expr_t *parse_expr();
-expr_t *parse_cast_expr();
-expr_t *parse_decl_spec(int with_store_cls);
-expr_t *parse_abs_declarator();
-expr_t *parse_decl_postfix();
-expr_t *parse_direct_declarator();
-expr_t *parse_argu_expr_list();
-expr_t *parse_pointer();
-expr_t *parse_declarator(type_t *base_type);
-expr_t *parse_initializer_list();
-expr_t *parse_statement();
-expr_t *parse_compound_statement();
 #endif

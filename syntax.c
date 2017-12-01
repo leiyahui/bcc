@@ -346,6 +346,7 @@ expr_t *parse_unary_expr()
 		}
 		unary_expr = build_expr_node(AST_UNARY_PLUS, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
+		unary_expr = fold_const(unary_expr);
 		break;
 	case TK_SUB:
 		SKIP(TK_SUB);
@@ -358,6 +359,7 @@ expr_t *parse_unary_expr()
 		}
 		unary_expr = build_expr_node(AST_UNARY_MINUS, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
+		unary_expr = fold_const(unary_expr);
 		break;
 	case TK_BITREVERT:
 		SKIP(TK_BITREVERT);
@@ -370,6 +372,7 @@ expr_t *parse_unary_expr()
 		}
 		unary_expr = build_expr_node(AST_BITREVERT, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
+		unary_expr = fold_const(unary_expr);
 		break;
 	case TK_NOT:
 		SKIP(TK_NOT);
@@ -379,10 +382,11 @@ expr_t *parse_unary_expr()
 		}
 		unary_expr = build_expr_node(AST_NOT, cast_expr, NULL);
 		unary_expr->type = cast_expr->type;
+		unary_expr = fold_const(unary_expr);
 		break;
 	case TK_SIZEOF:
 		SKIP(TK_SIZEOF);
-		unary_expr = create_expr_node(AST_SIZEOF);
+		unary_expr = create_expr_node(AST_CONST);
 		unary_expr->type = g_ty_uint;
 		unary_expr->value = parse_sizeof_expr()->size;
 		break;
@@ -606,6 +610,76 @@ type_t *usual_arith_conv(type_t *type1, type_t *type2)
 	return new_type;
 }
 
+BOOL is_const_expr(expr_t *expr)
+{
+	if (expr->type->kind == AST_CONST) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+expr_t *fold_const(expr_t *expr)
+{
+	long value1, value2;
+	if (!is_const_expr(expr->child_1) || !is_const_expr(expr->child_2)) {
+		return expr;
+	}
+	
+	value1 = expr->child_1->value;
+	value2 = expr->child_2->value;
+
+	switch (expr->kind) {
+	case AST_UNARY_PLUS:
+		expr->value = +value1;
+	case AST_UNARY_MINUS:
+		expr->value = -value1;
+	case AST_BITREVERT:
+		expr->value = ~value1;
+	case AST_NOT:
+		expr->value = !value1;
+	case TK_MULTIPLY:
+		expr->value = value1 * value2;
+	case TK_DIVIDE:
+		expr->value = value1 / value2;
+	case TK_MOD:
+		expr->value = value1 % value2;
+	case TK_ADD:
+		expr->value = value1 + value2;
+	case TK_SUB:
+		expr->value = value1 - value2;
+	case TK_LSHIFT:
+		expr->value = value2 << value2;
+	case TK_RSHIFT:
+		expr->value = value1 >> value2;
+	case TK_LESS:
+		expr->value = value1 < value2;
+	case TK_GREAT:
+		expr->value = value1 > value2;
+	case TK_LESS_EQUAL:
+		expr->value = value1 <= value2;
+	case TK_GREAT_EQUAL:
+		expr->value = value1 >= value2;
+	case TK_EQUAL:
+		expr->value = value1 == value2;
+	case TK_NEQUAL:
+		expr->value = value1 != value2;
+	case TK_BITAND:
+		expr->value = value1 & value2;
+	case TK_BITXOR:
+		expr->value = value1 ^ value2;
+	case TK_BITOR:
+		expr->value = value1 | value2;
+	case TK_AND:
+		expr->value = value1 && value2;
+	case TK_OR:
+		expr->value = value1 || value2;
+	case TK_QUESTION:
+		expr->value = ((cond_expr_t *)expr)->logical_or->value ? value1 : value2;
+	}
+	expr->kind = AST_CONST;
+	return expr;
+}
+
 expr_t *build_expr_node(int ast_kind, expr_t *child_1, expr_t *child_2)
 {
 	expr_t *expr;
@@ -637,6 +711,7 @@ expr_t *parse_multi_expr()
 
 		multi_expr = build_expr_node(G_TK_KIND, child1, child2);
 		multi_expr->type = usual_arith_conv(child1->type, child2->type);
+		fold_const(multi_expr);
 	}
 	return multi_expr;
 }
@@ -656,6 +731,7 @@ expr_t *parse_addit_expr()
 		if (is_arith_type(type1) && is_arith_type(type2)) {
 			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = usual_arith_conv(type1, type2);
+			fold_const(addit_expr);
 			continue;
 		}
 		if (is_pointer_type(type1) && is_pointer_type(type2)) {
@@ -667,11 +743,13 @@ expr_t *parse_addit_expr()
 			}
 			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = g_ty_int;
+			fold_const(addit_expr);
 			continue;
 		}
 		if (is_pointer_type(type1) && is_integer_type(type2)) {
 			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = child_1->type;
+			fold_const(addit_expr);
 			continue;
 		}
 		if (is_integer_type(type1) && is_pointer_type(type2)) {
@@ -680,6 +758,7 @@ expr_t *parse_addit_expr()
 			}
 			addit_expr = build_expr_node(G_TK_KIND, child_1, child_2);
 			addit_expr->type = child_2->type;
+			fold_const(addit_expr);
 			continue;
 		}
 		ERROR("invalid operand");
@@ -700,6 +779,7 @@ expr_t *parse_shift_epxr()
 		}
 		shift_expr = build_expr_node(G_TK_KIND, child1, child2);
 		shift_expr->type = child1->type;
+		fold_const(shift_expr);
 	}
 	return shift_expr;
 }
@@ -727,6 +807,7 @@ expr_t *parse_realtional_expr()
 
 		rela_expr = build_expr_node(G_TK_KIND, child1, child2);
 		rela_expr->type = g_ty_int;
+		fold_const(rela_expr);
 	}
 	return rela_expr;
 }
@@ -751,6 +832,7 @@ expr_t *parse_equality_expr()
 		} else {
 			ERROR("invalid operand");
 		}
+		fold_const(equality_expr);
 	}
 	return equality_expr;
 }
@@ -768,6 +850,7 @@ expr_t *parse_bit_and_expr()
 		}
 		bit_and_expr = build_expr_node(G_TK_KIND, child1, child2);
 		bit_and_expr->type = child1->type;
+		fold_const(bit_and_expr);
 	}
 	return bit_and_expr;
 }
@@ -785,6 +868,7 @@ expr_t *parse_exclusive_or_expr()
 		}
 		excl_expr = build_expr_node(G_TK_KIND, child1, child2);
 		excl_expr->type = child1->type;
+		fold_const(excl_expr);
 	}
 	return excl_expr;
 }
@@ -802,6 +886,7 @@ expr_t *parse_inclusive_or_expr()
 		}
 		inclu_or_expr = build_expr_node(G_TK_KIND, child1, child2);
 		inclu_or_expr->type = child1->type;
+		fold_const(inclu_or_expr);
 	}
 	return inclu_or_expr;
 }
@@ -819,6 +904,7 @@ expr_t *parse_logic_and_expr()
 		}
 		logic_and = build_expr_node(G_TK_KIND, child1, child2);
 		logic_and->type = g_ty_int;
+		fold_const(logic_and);
 	}
 	return logic_and;
 }
@@ -836,6 +922,7 @@ expr_t *parse_logic_or_expr()
 		}
 		logic_or = build_expr_node(G_TK_KIND, child1, child2);
 		logic_or->type = g_ty_int;
+		fold_const(logic_or);
 	}
 	return logic_or;
 }
@@ -877,7 +964,7 @@ cond_expr_t *parse_cond_expr()
 		} else {
 			ERROR("invalid operand");
 		}
-		return cond_expr;
+		return fold_const(cond_expr);
 	}
 
 	return logic_or_expr;
