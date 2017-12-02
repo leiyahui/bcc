@@ -15,7 +15,7 @@ void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t
 	ty_table->list_tail = new_type;
 }
 
-void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, int init_val)
+void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, BOOL is_enum_const, int init_val)
 {
 	symbol_t *new_sym;
 
@@ -24,6 +24,7 @@ void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, int init_val
 	new_sym->name = name;
 	new_sym->type = type;
 	new_sym->is_typedef = is_typedef;
+	new_sym->is_enum_const = is_enum_const;
 	new_sym->next = NULL;
 
 	g_sym_tb->list_tail->next = new_sym;

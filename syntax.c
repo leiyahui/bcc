@@ -80,20 +80,28 @@ expr_t *create_expr_node(int kind)
 ast_node_t *parse_primary_expr()
 {
 	expr_t *expr;
+	symbol_t *sym;
 
 	if (G_TK_KIND == TK_IDENTIFIER) {
-		create_expr_node(AST_VAR);
-		expr->child_1 = create_token_node();
 		if (!in_symbol_table(g_sym_tb, G_TK_VALUE.ptr)) {
 			ERROR("Undeclare varible %s", G_TK_VALUE.ptr);
 		}
-		expr->type = get_symbol_type(g_sym_tb, G_TK_VALUE.ptr);
+		sym = get_symbol(g_sym_tb, G_TK_VALUE.ptr);
+		if (sym->is_typedef) {
+			ERROR("Typedef name cannot be used as variable");
+		}
+		if (sym->is_enum_const) {
+			create_expr_node(AST_CONST);
+		} else {
+			create_expr_node(AST_VAR);
+		}
+		expr->child_1 = create_token_node();
 		NEXT_TOKEN;
 		return expr;
 	}
 	if (G_TK_KIND == TK_LPAREN) {
 		SKIP(TK_LPAREN);
-		return parse_expr();
+		return parse_comma_expr();
 		EXPECT(TK_RPAREN);
 		return expr;
 	}
@@ -145,7 +153,7 @@ expr_t *parse_subscript_expr(expr_t *expr)
 		ERROR("subscripted value is neither array nor pointer");
 	}
 	SKIP(TK_LBRACKET);
-	subscript_expr = expr_type_conv(parse_expr());
+	subscript_expr = expr_type_conv(parse_comma_expr());
 	if (!is_integer_type(subscript_expr->type)) {
 		ERROR("subscrpt expect integer type");
 	}
@@ -1162,7 +1170,7 @@ int parse_enumerator(val)
 	if (in_curr_scope_sym_tb(g_sym_tb, name)) {
 		ERROR("redeclare varible");
 	}
-	insert_to_sym_table(name, g_ty_int, FALSE, val);
+	insert_to_sym_table(name, g_ty_int, FALSE, TRUE, val);
 	return val + 1;
 }
 
@@ -1755,7 +1763,7 @@ vector_t *parse_init_declarator(type_t *spec_type)
 	type = parse_declarator(spec_type, &name);
 
 	is_typedef = (spec_type->store_cls == TK_TYPEDEF) ? TRUE : FALSE;
-	insert_to_sym_table(name, type, is_typedef, 0);
+	insert_to_sym_table(name, type, is_typedef, spec_type->qual | WITH_CONST, 0);
 
 	if (G_TK_KIND == TK_ASSIGN) {
 		NEXT_TOKEN;
@@ -1848,7 +1856,7 @@ ast_node_t *parse_expr_statement()
 
 	expr_state = (expr_statement_t *)bcc_malloc(sizeof(expr_statement_t));
 	
-	expr_state->expr = parse_expr();
+	expr_state->expr = parse_comma_expr();
 	SKIP(TK_SEMICOLON);
 
 	return expr_state;
@@ -1865,7 +1873,7 @@ ast_node_t *parse_selection_statement()
 
 	NEXT_TOKEN;
 	SKIP(TK_LPAREN);
-	select_state->fir_expr = parse_expr();
+	select_state->fir_expr = parse_comma_expr();
 	SKIP(TK_RPAREN);
 	select_state->statement = parse_statement();
 	
@@ -1888,7 +1896,7 @@ ast_node_t *parse_iteration_statement()
 	case TK_WHILE:
 		NEXT_TOKEN;
 		SKIP(TK_LPAREN);
-		iter_state->expr = parse_expr();
+		iter_state->expr = parse_comma_expr();
 		SKIP(TK_RPAREN);
 		iter_state->statement = parse_statement();
 		break;
@@ -1897,7 +1905,7 @@ ast_node_t *parse_iteration_statement()
 		iter_state->statement = parse_statement();
 		NEXT_TOKEN;
 		SKIP(TK_LPAREN);
-		iter_state->expr = parse_expr();
+		iter_state->expr = parse_comma_expr();
 		SKIP(TK_RPAREN);
 		SKIP(TK_SEMICOLON);
 		break;
@@ -1907,7 +1915,7 @@ ast_node_t *parse_iteration_statement()
 		iter_state->expr_statement1 = parse_expr_statement();
 		iter_state->expr_statement2 = parse_expr_statement();
 		if (G_TK_KIND != TK_RPAREN) {
-			iter_state->expr = parse_expr();
+			iter_state->expr = parse_comma_expr();
 		}
 		SKIP(TK_LPAREN);
 		iter_state->statement = parse_statement();
@@ -1934,7 +1942,7 @@ ast_node_t *parse_jump_statement()
 	case TK_RETURN:
 		NEXT_TOKEN;
 		if (G_TK_KIND != TK_SEMICOLON) {
-			jump_state->value = parse_expr();
+			jump_state->value = parse_comma_expr();
 		}
 		break;
 	case TK_CONTIUE:
