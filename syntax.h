@@ -16,11 +16,13 @@ enum expr_kind {
 	AST_PRFIX_INC, AST_PRIFX_DEC, AST_ADDR, AST_DREF, AST_UNARY_PLUS, AST_UNARY_MINUS, AST_BITREVERT, AST_NOT, AST_SIZEOF, //unary_expr
 	AST_CAST,		//cast expr
 	//binary expr
-	AST_MULTI, AST_DIVIDE, AST_MOD, AST_ADD, AST_SUB, AST_LEFT, AST_RIGHT, AST_LESS, AST_LESS_EQUAL, AST_GREAT, AST_GREAT_EQUAL, 
+	AST_MULTI, AST_DIVIDE, AST_MOD, AST_ADD, AST_SUB, AST_LEFT, AST_RIGHT, AST_LESS, AST_LESS_EQUAL, AST_GREAT, AST_GREAT_EQUAL,
 	AST_EQUAL, AST_NEQUAL, AST_BIT_AND, AST_XOR, AST_BIT_OR, AST_AND, AST_OR,
 	AST_COND_EXPR,	//condition expr
 	AST_ASSIGN_EXPR,	//assign expr
-	AST_COMMA_EXPR		//comma expr
+	AST_COMMA_EXPR,		//comma expr
+	AST_INIT, AST_DECL,
+	AST_LABELED, AST_COMPOUND, AST_EXPR, AST_SELECT, AST_ITERAT, AST_JUMP,
 };
 
 typedef union _ast_node_t {
@@ -68,33 +70,6 @@ typedef struct _initializer_t {
 	struct _initializer_t *next;
 }initializer_t;
 
-typedef struct _assign_op_t {
-	ast_node_t *value;
-}assign_op_t;
-
-typedef struct _assign_expr_t {
-	struct _cond_expr_t *cond_expr;
-	assign_op_t *assign_op;
-	struct _assign_expr_t *assign_expr;
-	struct _assign_expr_t *next;
-	double value;
-}assign_expr_t;
-
-#define PRI_TOKEN	0
-#define PRI_EXPR	1
-
-typedef struct _primary_expr_t {
-	int kind;
-	expr_t *expr;
-	double value;
-	BOOL compile_evaluated;
-}primary_expr_t;
-
-typedef struct _argu_expr_list_t {
-	assign_expr_t *assign_expr;
-	struct _argu_expr_list_t *argu_expr_list;
-}argu_expr_list_t;
-
 
 typedef struct _expr_t {
 	int kind;
@@ -116,58 +91,21 @@ typedef struct _init_ast_node_t {
 	expr_t *expr;
 }init_ast_node_t;
 
-#define PAREN		1
-#define BRACKET		2
-
-typedef struct _declarator_t {
+typedef struct _decl_node_t {
 	int kind;
 	char *name;
-	initializer_t *initializer;
-}declarator_t;
-
-#define REGULAR_DECLARATION			1 << 1
-#define STRUCT_DECLARATION		1 << 2
-#define PARAM_DECLARATION		1 << 3
-
-typedef struct _declaration_t {
-	int kind;
-	decl_spec_t *decl_spec;
-	declarator_t *declarator_list;
-}declaration_t;
+	init_ast_node_t *init_node;
+}decl_node_t;
 
 
-typedef struct _struct_or_union_spec_t {
-	int s_or_u;
-	ast_node_t *ident;
-	declaration_t *struct_decl;
-}struct_or_union_spec_t;
-
-#define CONST_EXPR	0
-#define PARAM_LIST	1
-#define IDENT_LIST	2
-
-typedef struct _enumerator_t {
-	ast_node_t *ident;
-	cond_expr_t *const_expr;
-	struct _enumerator_t *next;
-}enumerator_t;
-
-typedef struct _enum_spec_t {
-	ast_node_t *ident;
-	enumerator_t *enum_decl;
-}enum_spec_t;
-
-typedef struct _expr_statement_t {
-	expr_t *expr;
-}expr_statement_t;
 
 
-#define LABELED_STATEMENT	0
-#define COMPOUND_STATEMENT	1
-#define EXPR_STATEMENT		2
-#define SELECT_STATEMENT	3
-#define ITERAT_STATEMENT	4
-#define JUMP_STATMENT		5
+#define AST_LABELED_STATEMENT	0
+#define AST_COMPOUND_STATEMENT	1
+#define AST_EXPR_STATEMENT		2
+#define AST_SELECT_STATEMENT	3
+#define AST_ITERAT_STATEMENT	4
+#define AST_JUMP_STATMENT		5
 
 typedef struct _statement_t {
 	int node_kind;
@@ -217,22 +155,6 @@ typedef struct _func_def_t {
 	declaration_t *decl_list;
 	comp_state_t *comp_state_ptr;
 }func_def_t;
-
-#define DECLARATION			1
-#define FUNC_DEFINATION		2
-
-typedef struct _external_declaration_t {
-	int kind;
-	func_def_t *func;
-	declaration_t *decl;
-}external_declaration_t;
-
-
-
-typedef struct _tdname_t {
-	char *name;
-	int level;
-}tdname_t;
 
 typedef struct _coordinate_t {
 	char *g_cursor;

@@ -1099,8 +1099,6 @@ void parse_struct_declaration(tag_type_t *tag_type)
 
 void parse_struct_declaration_list(tag_type_t *type)
 {
-	declaration_t *list, *list_iter;
-	
 	parse_struct_declaration(type);
 	while (G_TK_KIND != TK_RBRACE) {
 		parse_struct_declaration(type);
@@ -1459,7 +1457,6 @@ type_t *parse_param_declarator(type_t *base_type)
 void parse_param_declaration(function_type_t *func_type)
 {
 	type_t *spec_type, *type;
-	declaration_t *param_decl;
 
 	spec_type = parse_decl_spec(TRUE);
 	if (spec_type->store_cls == TK_TYPEDEF) {
@@ -1664,6 +1661,7 @@ init_ast_node_t *create_init_ast_node(expr_t *expr, int offset)
 	init_ast_node_t *init_node;
 
 	init_node = (init_ast_node_t *)bcc_malloc(sizeof(init_ast_node_t));
+	init_node->kind = AST_INIT;
 	init_node->expr = expr;
 	init_node->offset = offset;
 
@@ -1707,7 +1705,7 @@ void parse_init_array_string(vector_t *init_node_list, type_t *type, int offset)
 	}
 }
 
-void parse_array_initializer_lsit(vector_t *init_node_list, type_t *type, int offset)
+void parse_array_initializer_list(vector_t *init_node_list, type_t *type, int offset)
 {
 	type_t *base_type;
 	int i;
@@ -1726,7 +1724,7 @@ void parse_array_initializer_lsit(vector_t *init_node_list, type_t *type, int of
 
 }
 
-ast_node_t *parse_initializer(vector_t *init_node_list, type_t *type, int offset)
+void parse_initializer(vector_t *init_node_list, type_t *type, int offset)
 {
 	init_ast_node_t *init_node;
 	expr_t *expr;
@@ -1737,7 +1735,7 @@ ast_node_t *parse_initializer(vector_t *init_node_list, type_t *type, int offset
 		if (type->kind == TYPE_STRUCT) {
 			parse_struct_initializer_list(init_node_list, type, offset);
 		} else if (type->kind = TYPE_ARRAY){
-			parse_initializer_list(init_node_list, type, offset);
+			parse_array_initializer_list(init_node_list, type, offset);
 		}
 		if (G_TK_KIND == TK_COMMA) {
 			NEXT_TOKEN;
@@ -1747,17 +1745,29 @@ ast_node_t *parse_initializer(vector_t *init_node_list, type_t *type, int offset
 		parse_init_array_string(init_node_list, type, offset);
 	} else {
 		expr = parse_assign_expr();
-		create_init_ast_node(expr, offset);
+		init_node = create_init_ast_node(expr, offset);
 		insert_vector(init_node_list, init_node);
 	}
 }
 
-vector_t *parse_init_declarator(type_t *spec_type)
+decl_node_t *create_decl_node(char *name, init_ast_node_t *init_node)
+{
+	decl_node_t *node;
+
+	node = (decl_node_t *)bcc_malloc(sizeof(decl_node_t));
+
+	node->kind = AST_DECL;
+	node->name = name;
+	node->init_node = init_node;
+}
+
+void *parse_init_declarator(vector_t *list, type_t *spec_type)
 {
 	type_t *type;
 	expr_t *expr;
 	vector_t *decl_init_ast;
 	BOOL is_typedef;
+	decl_node_t *decl_node;
 	char *name;
 	
 	type = parse_declarator(spec_type, &name);
@@ -1765,23 +1775,26 @@ vector_t *parse_init_declarator(type_t *spec_type)
 	is_typedef = (spec_type->store_cls == TK_TYPEDEF) ? TRUE : FALSE;
 	insert_to_sym_table(name, type, is_typedef, spec_type->qual | WITH_CONST, 0);
 
+	decl_init_ast = NULL;
 	if (G_TK_KIND == TK_ASSIGN) {
 		NEXT_TOKEN;
 		decl_init_ast = create_vector(10);
-		expr = parse_initializer(decl_init_ast, type, 0);
+		parse_initializer(decl_init_ast, type, 0);
 	}
-	return decl_init_ast;
+
+	insert_vector(list, create_decl_node(name, decl_init_ast));
 }
 
-ast_node_t *parse_declaration()
+ast_node_t *parse_declaration(vector_t *list)
 {
 	type_t *base_type, *type;
 
+
 	base_type = parse_decl_spec(TRUE);
 
-	parse_init_declarator(base_type);
+	parse_init_declarator(list, base_type);
 	while (G_TK_KIND == TK_COMMA) {
-		parse_init_declarator(base_type);
+		parse_init_declarator(list, base_type);
 	}
 	SKIP(TK_SEMICOLON);
 }
@@ -1815,13 +1828,15 @@ BOOL is_decl_spec(token_t *token) {
 	return FALSE;
 }
 
-ast_node_t *parse_declaration_list()
+vector_t *parse_declaration_list()
 {
-	declaration_t *list;
-	list = parse_declaration();
+	vector_t *list;
+
+	list = create_vector(20);
+	parse_declaration(list);
 	
-	if (is_decl_spec(&g_current_token)) {
-		list->next = parse_declaration_list();
+	while (is_decl_spec(&g_current_token)) {
+		parse_declaration(list);
 	}
 	return list;
 }
