@@ -17,7 +17,6 @@ BOOL is_typedef_name(char *name)
 }
 
 
-
 #define NEXT_TOKEN get_next_token();		
 
 #define G_TK_KIND	g_current_token.tk_kind
@@ -1841,217 +1840,219 @@ vector_t *parse_declaration_list()
 	return list;
 }
 
-ast_node_t *parse_labeled_statement()
+statement_t *parse_labeled_statement()
 {
-	labeled_statement_t *labeled_state;
+	statement_t *labeled_state;
+	int kind;
 
-	labeled_state = (labeled_statement_t *)bcc_malloc(sizeof(labeled_statement_t));
+	labeled_state = (statement_t *)bcc_malloc(sizeof(statement_t));
 
-	labeled_state->token = create_token_node();
-	switch (G_TK_KIND) {
-	case TK_IDENTIFIER:
-	case TK_DEFAULT:
-		SKIP(TK_COLON);
-		break;
-	case TK_CASE:
-		labeled_state->const_expr = parse_const_expr();
-		SKIP(TK_COLON);
-		break;
-	default:
-		ERROR("expect identifier, 'default', 'case'");
-	}
-	labeled_state->statement = parse_statement();
+	labeled_state->kind = AST_LABEL_IDENT;
+	labeled_state->ident = create_token_node();
+	SKIP(TK_COLON);
+	labeled_state->statement1 = parse_statement();
 
 	return labeled_state;
 }
 
-ast_node_t *parse_expr_statement()
+statement_t *parse_default_statement()
 {
-	expr_statement_t *expr_state;
+	statement_t *default_statment;
 
-	expr_state = (expr_statement_t *)bcc_malloc(sizeof(expr_statement_t));
+	default_statment = (statement_t *)bcc_malloc(sizeof(statement_t));
+	default_statment->kind = AST_LABEL_DEFAULT;
+	SKIP(TK_DEFAULT);
+	default_statment->statement1 = parse_statement();
+	return default_statment;
+}
+
+statement_t *parse_case_statment()
+{
+	statement_t *case_statment;
+
+	case_statment = (statement_t *)bcc_malloc(sizeof(statement_t));
+	case_statment->kind = AST_LABEL_CASE;
+	case_statment->expr1 = parse_const_expr();
+	SKIP(TK_COLON);
+	case_statment->statement1 = parse_statement();
 	
-	expr_state->expr = parse_comma_expr();
+	return case_statment;
+}
+
+statement_t *parse_expr_statement()
+{
+	statement_t *expr_state;
+
+	expr_state = (statement_t *)bcc_malloc(sizeof(statement_t));
+	
+	expr_state->kind = AST_EXPR_STATEMENT;
+	expr_state->expr1 = parse_comma_expr();
 	SKIP(TK_SEMICOLON);
 
 	return expr_state;
 }
 
-ast_node_t *parse_selection_statement()
+statement_t *parse_if_statement()
 {
-	select_statement_t *select_state;
-	int select_kind;
+	statement_t *if_statement;
 
-	select_state = (select_statement_t *)bcc_malloc(sizeof(select_statement_t));
-	
-	select_kind = G_TK_KIND;
+	if_statement = (statement_t *)bcc_malloc(sizeof(statement_t));
+	if_statement->kind = AST_IF;
 
-	NEXT_TOKEN;
+	SKIP(TK_IF);
 	SKIP(TK_LPAREN);
-	select_state->fir_expr = parse_comma_expr();
+	if_statement->expr1 = parse_comma_expr();
 	SKIP(TK_RPAREN);
-	select_state->statement = parse_statement();
-	
-	if (select_kind == TK_IF && G_TK_KIND == TK_ELSE) {
-		select_kind = G_TK_KIND;
-		NEXT_TOKEN;
-		select_state->sec_expr = parse_statement();
+	if_statement->statement1 = parse_statement();
+	if (G_TK_KIND == TK_ELSE) {
+		SKIP(TK_ELSE);
+		if_statement->statement2 = parse_statement();
 	}
-	select_state->kind = select_kind;
-	return select_state;
+	return if_statement;
 }
 
-ast_node_t *parse_iteration_statement()
+statement_t *parse_switch_statement()
 {
-	iteration_statement_t *iter_state;
+	statement_t *switch_statement;
 
-	iter_state->kind = G_TK_KIND;
-	
-	switch (G_TK_KIND) {
-	case TK_WHILE:
-		NEXT_TOKEN;
-		SKIP(TK_LPAREN);
-		iter_state->expr = parse_comma_expr();
-		SKIP(TK_RPAREN);
-		iter_state->statement = parse_statement();
-		break;
-	case TK_DO:
-		NEXT_TOKEN;
-		iter_state->statement = parse_statement();
-		NEXT_TOKEN;
-		SKIP(TK_LPAREN);
-		iter_state->expr = parse_comma_expr();
-		SKIP(TK_RPAREN);
-		SKIP(TK_SEMICOLON);
-		break;
-	case TK_FOR:
-		NEXT_TOKEN;
-		SKIP(TK_LPAREN);
-		iter_state->expr_statement1 = parse_expr_statement();
-		iter_state->expr_statement2 = parse_expr_statement();
-		if (G_TK_KIND != TK_RPAREN) {
-			iter_state->expr = parse_comma_expr();
-		}
-		SKIP(TK_LPAREN);
-		iter_state->statement = parse_statement();
-		break;
-	default:
-		ERROR("expect 'while', 'do', 'for'");
-		break;
-	}
-	return iter_state;
+	switch_statement = (statement_t *)bcc_malloc(sizeof(statement_t));
+	switch_statement->kind = AST_SWITCH;
+	SKIP(TK_SWITCH);
+	SKIP(TK_LPAREN);
+	switch_statement->expr1 = parse_comma_expr();
+	SKIP(TK_RPAREN);
+	switch_statement->statement1 = parse_statement();
 }
 
-ast_node_t *parse_jump_statement()
+statement_t *parse_while_statement()
 {
-	jump_statement_t *jump_state;
+	statement_t *while_statment;
 
-	jump_state->kind = G_TK_KIND;
+	while_statment = (statement_t *)bcc_malloc(sizeof(statement_t));
+	while_statment->kind = AST_WHILE;
+	SKIP(TK_WHILE);
+	SKIP(TK_LPAREN);
+	while_statment->expr1 = parse_comma_expr();
+	SKIP(TK_RPAREN);
+	while_statment->statement1 = parse_statement();
+}
 
-	switch (G_TK_KIND) {
+statement_t *parse_do_statement()
+{
+	statement_t *do_statement;
+	
+	do_statement = (statement_t *)bcc_malloc(sizeof(statement_t));
+	do_statement->kind = AST_DO;
+	SKIP(TK_DO);
+	do_statement->statement1 = parse_statement();
+	SKIP(TK_LPAREN);
+	do_statement->expr1 = parse_comma_expr();
+	SKIP(TK_LPAREN);
+	SKIP(TK_SEMICOLON);
+}
+
+statement_t *parse_for_statement()
+{
+	statement_t *for_statement;
+
+	for_statement = (statement_t *)bcc_malloc(sizeof(statement_t));
+	for_statement->kind = AST_FOR;
+
+	SKIP(TK_LPAREN);
+	for_statement->statement1 = parse_expr_statement();
+	for_statement->statement2 = parse_expr_statement();
+	if (G_TK_KIND != TK_RPAREN) {
+		for_statement->expr1 = parse_comma_expr();
+	}
+	SKIP(TK_RPAREN);
+	for_statement->statement3 = parse_statement();
+}
+
+statement_t *parse_jump_statement()
+{
+	statement_t *goto_statement;
+
+	goto_statement = (statement_t *)bcc_malloc(sizeof(statement_t));
+	
+	switch (G_TK_KIND)
+	{
 	case TK_GOTO:
-		NEXT_TOKEN;
-		jump_state->value = create_token_node();
-		NEXT_TOKEN;
-		break;
-	case TK_RETURN:
-		NEXT_TOKEN;
-		if (G_TK_KIND != TK_SEMICOLON) {
-			jump_state->value = parse_comma_expr();
-		}
-		break;
+		goto_statement->kind = AST_GOTO;
+		SKIP(TK_GOTO);
+		goto_statement->ident = create_token_node();
+		SKIP(TK_IDENTIFIER);
 	case TK_CONTIUE:
+		goto_statement->kind = AST_CONTINUE;
+		SKIP(TK_CONTIUE);
 	case TK_BREAK:
-		NEXT_TOKEN;
-		break;
+		goto_statement->kind = AST_BREAK;
+		SKIP(TK_BREAK);
+	case TK_RETURN:
+		goto_statement->kind = AST_RETURN;
+		if (G_TK_KIND != TK_SEMICOLON) {
+			goto_statement->expr1 = parse_comma_expr();
+		}
 	default:
-		ERROR("expect 'goto', 'return', 'continue', 'break'");
 		break;
 	}
 	SKIP(TK_SEMICOLON);
 
-	return jump_state;
+	return goto_statement;
 }
 
-ast_node_t *parse_statement()
+statement_t *parse_statement()
 {
 	statement_t* statement;
 
-	statement = (statement_t*)bcc_malloc(sizeof(statement_t));
-	statement->statement = statement->next = NULL;
-
 	switch (G_TK_KIND) {
 	case TK_IDENTIFIER:
-		SAVE_CURR_COORDINATE;
-		NEXT_TOKEN;
-		if (G_TK_KIND == TK_COLON) {
-			BACK_TO_SAVED_COORDINATE;
-			statement->node_kind = LABELED_STATEMENT;
-			statement->statement = parse_labeled_statement();
-		} else {
-			BACK_TO_SAVED_COORDINATE;
-			statement->node_kind = EXPR_STATEMENT;
-			statement->statement = parse_expr_statement();
+		if (peek()->tk_kind == TK_COLON) {
+			return parse_labeled_statement();
 		}
-		break;
-	case TK_CASE:
-	case TK_DEFAULT:
-		statement->node_kind = LABELED_STATEMENT;
-		statement->statement = parse_labeled_statement();
-		break;
-	case TK_LBRACE:
-		statement->node_kind = COMPOUND_STATEMENT;
-		statement->statement = parse_compound_statement();
-		break;
-	case TK_IF:
-	case TK_SWITCH:
-		statement->node_kind = SELECT_STATEMENT;
-		statement->statement = parse_selection_statement();
-		break;
-	case TK_WHILE:
-	case TK_DO:
-	case TK_FOR:
-		statement->node_kind = ITERAT_STATEMENT;
-		statement->statement = parse_iteration_statement();
-		break;
-	case TK_GOTO:
+	case TK_CASE:		return parse_case_statment();
+	case TK_DEFAULT:	return parse_default_statement();
+	case TK_LBRACE:		return parse_compound_statement();
+	case TK_IF:			return parse_if_statement();
+	case TK_SWITCH:		return parse_switch_statement();
+	case TK_WHILE:		return parse_while_statement();
+	case TK_DO:			return parse_do_statement();
+	case TK_FOR:		return parse_for_statement();
+	case TK_GOTO:	
 	case TK_CONTIUE:
 	case TK_BREAK:
-	case TK_RETURN:
-		statement->node_kind = JUMP_STATMENT;
-		statement->statement = parse_jump_statement();
-		break;
-	default:
-		parse_expr_statement();
+	case TK_RETURN:		return parse_jump_statement();
+	default:			return parse_expr_statement();
 	}
-	return statement;
 }
 
-ast_node_t *parse_statement_list()
+vector_t *parse_statement_list()
 {
-	statement_t *statement_list ,*statement_iter;
+	vector_t *list;
+	statement_t *statement_list;
 
-	statement_list = statement_iter = parse_statement();
+	list = (vector_t *)bcc_malloc(sizeof(vector_t));
+
+	insert_vector(list, parse_statement());
 
 	while (G_TK_KIND != TK_LBRACE) {
-		statement_iter->next = parse_statement();
-		statement_iter = statement_iter->next;
+		insert_vector(list, parse_statement());
 	}
-	return statement_list;
+	return list;
 }
 
-ast_node_t *parse_compound_statement()
+statement_t *parse_compound_statement()
 {
-	comp_state_t *comp_state;
+	statement_t *comp_state;
 
 	if (G_TK_KIND != TK_LBRACE) {
 		ERROR("expect '{'");
 	}
-	SKIP(TK_LBRACE);			
+	SKIP(TK_LBRACE);
+	comp_state = (statement_t *)bcc_malloc(sizeof(statement_t));
 	if (is_decl_spec(&g_current_token)) {
-		comp_state->decl_list = parse_declaration_list();
+		comp_state->vec1 = parse_declaration_list();
 	}
-	comp_state->decl_list = parse_statement_list();
+	comp_state->vec2 = parse_statement_list();
 	SKIP(TK_RBRACE);	
 	return comp_state;
 }
@@ -2063,7 +2064,7 @@ ast_node_t *parse_external_decl()
 	declarator_t *declarator;
 	func_def_t *func_def;
 	decl_spec_t *decl_spec;
-	
+
 
 	decl = func_def = decl_spec = declarator = NULL;
 
@@ -2081,7 +2082,8 @@ ast_node_t *parse_external_decl()
 		decl->declarator_list = declarator;
 		external_decl->decl = decl;
 		external_decl->kind = DECLARATION;
-	} else if(G_TK_KIND == TK_LBRACE || is_decl_spec(&g_current_token)) {
+	}
+	else if (G_TK_KIND == TK_LBRACE || is_decl_spec(&g_current_token)) {
 		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
 		func_def->decl_spec = decl_spec;
 		func_def->decl = declarator;
@@ -2093,7 +2095,8 @@ ast_node_t *parse_external_decl()
 
 		external_decl->func = func_def;
 		external_decl->kind = FUNC_DEFINATION;
-	} else {
+	}
+	else {
 		ERROR("unexpected token");
 	}
 	return external_decl;

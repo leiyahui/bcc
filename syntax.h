@@ -22,7 +22,8 @@ enum expr_kind {
 	AST_ASSIGN_EXPR,	//assign expr
 	AST_COMMA_EXPR,		//comma expr
 	AST_INIT, AST_DECL,
-	AST_LABELED, AST_COMPOUND, AST_EXPR, AST_SELECT, AST_ITERAT, AST_JUMP,
+	AST_LABEL_IDENT, AST_LABEL_CASE, AST_LABEL_DEFAULT, AST_COMPOUND, AST_EXPR_STATEMENT, AST_IF, AST_SWITCH, AST_WHILE, AST_DO, AST_FOR,
+	AST_GOTO, AST_CONTINUE, AST_BREAK, AST_RETURN,
 };
 
 typedef union _ast_node_t {
@@ -143,11 +144,18 @@ typedef struct _jump_statement_t {
 	ast_node_t *value;
 }jump_statement_t;
 
-
-typedef struct _comp_state_t {
-	statement_t *statement_list;
-	declaration_t *decl_list;
-}comp_state_t;
+typedef struct _statement_t {
+	int kind;
+	ast_node_t *ident;
+	expr_t *expr1;
+	expr_t *expr2;
+	expr_t *expr3;
+	struct _statement_t *statement1;
+	struct _statement_t *statement2;
+	struct _statement_t *statement3;
+	vector_t *vec1;
+	vector_t *vec2;
+}statement_t;
 
 typedef struct _func_def_t {
 	decl_spec_t *decl_spec;
