@@ -99,51 +99,6 @@ typedef struct _decl_node_t {
 }decl_node_t;
 
 
-
-
-#define AST_LABELED_STATEMENT	0
-#define AST_COMPOUND_STATEMENT	1
-#define AST_EXPR_STATEMENT		2
-#define AST_SELECT_STATEMENT	3
-#define AST_ITERAT_STATEMENT	4
-#define AST_JUMP_STATMENT		5
-
-typedef struct _statement_t {
-	int node_kind;
-	ast_node_t *statement;
-	struct _expr_statement_t *next;
-}statement_t;
-
-typedef struct _labeled_statement_t {
-	ast_node_t *token;
-	const_expr_t *const_expr;
-	statement_t *statement;
-}labeled_statement_t;
-
-#define IF_SELECTION		1
-#define IF_ELSE_SELECTION	2
-#define SWITCH_SELECTION	3
-
-typedef struct _select_statement_t {
-	int kind;
-	expr_t *fir_expr;
-	expr_t *sec_expr;
-	statement_t *statement;
-}select_statement_t;
-
-typedef struct _iteration_statement_t {
-	int kind;
-	expr_t *expr;
-	statement_t *statement;
-	expr_statement_t *expr_statement1;
-	expr_statement_t *expr_statement2;
-}iteration_statement_t;
-
-typedef struct _jump_statement_t {
-	int kind;
-	ast_node_t *value;
-}jump_statement_t;
-
 typedef struct _statement_t {
 	int kind;
 	ast_node_t *ident;

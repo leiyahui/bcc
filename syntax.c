@@ -1155,7 +1155,7 @@ int parse_enumerator(val)
 	expr_t *const_expr;
 
 	if (G_TK_KIND != TK_IDENTIFIER) {
-		ERROLR("expect identifier");
+		ERROR("expect identifier");
 	}
 	name = G_TK_VALUE.ptr;
 	
