@@ -24,6 +24,7 @@ enum expr_kind {
 	AST_INIT, AST_DECL,
 	AST_LABEL_IDENT, AST_LABEL_CASE, AST_LABEL_DEFAULT, AST_COMPOUND, AST_EXPR_STATEMENT, AST_IF, AST_SWITCH, AST_WHILE, AST_DO, AST_FOR,
 	AST_GOTO, AST_CONTINUE, AST_BREAK, AST_RETURN,
+	AST_FUNC_DEF,
 };
 
 typedef union _ast_node_t {
@@ -113,10 +114,9 @@ typedef struct _statement_t {
 }statement_t;
 
 typedef struct _func_def_t {
-	decl_spec_t *decl_spec;
-	declarator_t *decl;
-	declaration_t *decl_list;
-	comp_state_t *comp_state_ptr;
+	int kind;
+	char *name;
+	statement_t *func_body;
 }func_def_t;
 
 typedef struct _coordinate_t {

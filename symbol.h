@@ -7,6 +7,7 @@ typedef struct _symbol_t {
 	char *name;
 	type_t *type;
 	BOOL is_typedef;
+	BOOL defined;
 	BOOL is_enum_const;
 	double init_value;
 	struct _symbol_t *next;
@@ -38,7 +39,7 @@ extern user_df_ty_table_t *g_tag_tb;
 
 void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declaration);
 
-void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, BOOL is_enum_const, int init_val);
+void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, BOOL defined, BOOL is_enum_const, int init_val);
 
 BOOL is_curr_scope_define_type(user_df_ty_table_t *ty_table, char *name);
 

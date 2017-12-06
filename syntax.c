@@ -1167,7 +1167,7 @@ int parse_enumerator(val)
 	if (in_curr_scope_sym_tb(g_sym_tb, name)) {
 		ERROR("redeclare varible");
 	}
-	insert_to_sym_table(name, g_ty_int, FALSE, TRUE, val);
+	insert_to_sym_table(name, g_ty_int, FALSE, FALSE, TRUE, val);
 	return val + 1;
 }
 
@@ -1395,31 +1395,6 @@ type_t *parse_decl_spec(int can_with_store_cls)
 	}
 	type->store_cls = store_cls;
 	return type;
-}
-
-
-#define WITHOUT_DECL		1 << 0
-#define WITH_DECL			1 << 1
-#define WITH_ABSTRACT_DECL	1 << 2
-
-int decl_type()
-{
-	if (G_TK_KIND != TK_POINTER
-		&& G_TK_KIND != TK_LPAREN
-		&& G_TK_KIND != TK_LBRACKET
-		&& G_TK_KIND != TK_IDENTIFIER) {
-		return WITHOUT_DECL;
-	}
-	if (G_TK_KIND == TK_POINTER) {
-		NEXT_TOKEN;
-	}
-	while (G_TK_KIND == TK_LPAREN) {
-		NEXT_TOKEN;
-	}
-	if (G_TK_KIND == TK_IDENTIFIER) {
-		return WITHOUT_DECL;
-	}
-	return WITH_ABSTRACT_DECL;
 }
 
 type_t *parse_param_declarator(type_t *base_type)
@@ -1772,7 +1747,7 @@ void *parse_init_declarator(vector_t *list, type_t *spec_type)
 	type = parse_declarator(spec_type, &name);
 
 	is_typedef = (spec_type->store_cls == TK_TYPEDEF) ? TRUE : FALSE;
-	insert_to_sym_table(name, type, is_typedef, spec_type->qual | WITH_CONST, 0);
+	insert_to_sym_table(name, type, is_typedef, FALSE, spec_type->qual | WITH_CONST, 0);
 
 	decl_init_ast = NULL;
 	if (G_TK_KIND == TK_ASSIGN) {
@@ -2057,47 +2032,52 @@ statement_t *parse_compound_statement()
 	return comp_state;
 }
 
+BOOL is_func_def()
+{
+	SAVE_CURR_COORDINATE;
+
+	while (1) {
+		if (G_TK_KIND == TK_LBRACE) {
+			BACK_TO_SAVED_COORDINATE;
+			return TRUE;
+		}
+		if (G_TK_KIND == TK_SEMICOLON) {
+			BACK_TO_SAVED_COORDINATE;
+			return FALSE;
+		}
+		NEXT_TOKEN;
+	}
+
+}
+
+func_def_t *parse_func_def()
+{
+	type_t *base_type;
+	function_type_t *func_type;
+	statement_t *func_body;
+	func_def_t *func_def;
+	char *name;
+
+	base_type = parse_decl_spec(TRUE);
+	func_type = parse_declarator(base_type, &name);
+
+	insert_to_sym_table(name, func_type, FALSE, TRUE, FALSE, 0);
+	func_body = parse_compound_statement();
+	func_def = (func_def_t *)bcc_malloc(sizeof(func_def_t));
+	func_def->kind = AST_FUNC_DEF;
+	func_def->func_body = func_body;
+
+	return func_def;
+}
+
 vector_t *parse_external_decl()
 {
-	external_declaration_t *external_decl;
-	declaration_t *decl;
-	declarator_t *declarator;
-	func_def_t *func_def;
-	decl_spec_t *decl_spec;
-
-
-	decl = func_def = decl_spec = declarator = NULL;
-
-	if (is_decl_spec(&g_current_token)) {
-		decl_spec = parse_decl_spec(TRUE);
+	vector_t *external_vect;
+	
+	create_vector(30);
+	if (is_func_def()) {
+		insert_vector(external_vect, parse_func_def());
+	} else {
+		parse_declaration(external_vect);
 	}
-
-	if (G_TK_KIND != TK_SEMICOLON) {
-		declarator = parse_init_declarator_list();
-	}
-
-	if (G_TK_KIND == TK_SEMICOLON) {
-		decl = (declaration_t *)bcc_malloc(sizeof(declaration_t));
-		decl->decl_spec = decl_spec;
-		decl->declarator_list = declarator;
-		external_decl->decl = decl;
-		external_decl->kind = DECLARATION;
-	}
-	else if (G_TK_KIND == TK_LBRACE || is_decl_spec(&g_current_token)) {
-		func_def = (declaration_t *)bcc_malloc(sizeof(declaration_t));
-		func_def->decl_spec = decl_spec;
-		func_def->decl = declarator;
-		if (is_decl_spec(&g_current_token)) {
-			func_def->decl_list = parse_declaration_list();
-			EXPECT(TK_LBRACE);
-		}
-		func_def->comp_state_ptr = parse_compound_statement();
-
-		external_decl->func = func_def;
-		external_decl->kind = FUNC_DEFINATION;
-	}
-	else {
-		ERROR("unexpected token");
-	}
-	return external_decl;
 }
