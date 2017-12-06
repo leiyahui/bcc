@@ -1788,12 +1788,12 @@ ast_node_t *parse_declaration(vector_t *list)
 {
 	type_t *base_type, *type;
 
-
 	base_type = parse_decl_spec(TRUE);
-
-	parse_init_declarator(list, base_type);
-	while (G_TK_KIND == TK_COMMA) {
+	if (G_TK_KIND != TK_SEMICOLON) {
 		parse_init_declarator(list, base_type);
+		while (G_TK_KIND == TK_COMMA) {
+			parse_init_declarator(list, base_type);
+		}
 	}
 	SKIP(TK_SEMICOLON);
 }
@@ -2057,7 +2057,7 @@ statement_t *parse_compound_statement()
 	return comp_state;
 }
 
-ast_node_t *parse_external_decl()
+vector_t *parse_external_decl()
 {
 	external_declaration_t *external_decl;
 	declaration_t *decl;
