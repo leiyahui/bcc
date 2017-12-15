@@ -6,6 +6,19 @@ coordinate_t	g_recorded_coord;
 BOOL			g_curr_expr_compile_computable = FALSE;
 double			g_curr_expr_value;
 
+void ENTER_SCOPE()
+{
+	g_sym_tb = create_sym_table(g_sym_tb);
+	g_tag_tb = create_user_def_type(g_tag_tb);
+	g_lables_tb = create_user_def_type(g_lables_tb);
+}
+
+void EXIT_SCOPE()
+{
+	g_sym_tb = g_sym_tb->parent;
+	g_tag_tb = g_tag_tb->parent;
+	g_lables_tb = g_lables_tb->parent;
+}
 
 BOOL is_typedef_name(char *name)
 {
@@ -2023,11 +2036,13 @@ statement_t *parse_compound_statement()
 		ERROR("expect '{'");
 	}
 	SKIP(TK_LBRACE);
+	ENTER_SCOPE();
 	comp_state = (statement_t *)bcc_malloc(sizeof(statement_t));
 	if (is_decl_spec(&g_current_token)) {
 		comp_state->vec1 = parse_declaration_list();
 	}
 	comp_state->vec2 = parse_statement_list();
+	EXIT_SCOPE();
 	SKIP(TK_RBRACE);	
 	return comp_state;
 }
@@ -2058,7 +2073,9 @@ func_def_t *parse_func_def()
 	func_def_t *func_def;
 	char *name;
 
+	ENTER_SCOPE();
 	base_type = parse_decl_spec(TRUE);
+	ENTER_SCOPE();
 	func_type = parse_declarator(base_type, &name);
 
 	insert_to_sym_table(name, func_type, FALSE, TRUE, FALSE, 0);
@@ -2066,6 +2083,7 @@ func_def_t *parse_func_def()
 	func_def = (func_def_t *)bcc_malloc(sizeof(func_def_t));
 	func_def->kind = AST_FUNC_DEF;
 	func_def->func_body = func_body;
+	EXIT_SCOPE();
 
 	return func_def;
 }

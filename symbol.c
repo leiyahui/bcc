@@ -1,5 +1,25 @@
 #include "bcc.h"
 
+symbol_table_t *create_sym_table(symbol_table_t *parent)
+{
+	symbol_table_t *new_tb;
+	new_tb = (symbol_table_t *)bcc_malloc(sizeof(symbol_table_t));
+	new_tb->parent = parent;
+	new_tb->list_head = new_tb->list_head = NULL;
+
+	return new_tb;
+}
+
+user_df_ty_table_t *create_user_def_type(user_df_ty_table_t *parent)
+{
+	user_df_ty_table_t *new_tb;
+
+	new_tb = (user_df_ty_table_t *)bcc_malloc(sizeof(user_df_ty_table_t));
+	new_tb->parent = parent;
+	new_tb->list_head = new_tb->list_tail = NULL;
+	return new_tb;
+}
+
 void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declarator)
 {
 	user_define_type_t *new_type;
@@ -24,7 +44,7 @@ void insert_to_sym_table(char *name, type_t *type, BOOL is_typedef, BOOL defined
 	new_sym->name = name;
 	new_sym->type = type;
 	new_sym->is_typedef = is_typedef;
-	new_sym->defined = defined;		//used for function body
+	new_sym->defined = defined;			//used for function body
 	new_sym->is_enum_const = is_enum_const;
 	new_sym->init_value = init_val;
 	new_sym->next = NULL;

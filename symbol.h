@@ -29,13 +29,16 @@ typedef struct _user_define_type_t {				// including tags, statement_labels, typ
 typedef struct _user_df_ty_table_t {
 	user_define_type_t *list_head;
 	user_define_type_t *list_tail;
-	BOOL has_declarator;
 	struct _user_df_ty_table_t *parent;
 }user_df_ty_table_t;
 
 extern symbol_table_t *g_sym_tb;		//variable and typedef name
 extern user_df_ty_table_t *g_lables_tb;
 extern user_df_ty_table_t *g_tag_tb;
+
+symbol_table_t *create_sym_table(symbol_table_t *parent);
+
+user_df_ty_table_t *create_user_def_type(user_df_ty_table_t *parent);
 
 void insert_to_user_define_type(user_df_ty_table_t *ty_table, char *name, type_t *type, BOOL has_declaration);
 
